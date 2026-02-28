@@ -1,0 +1,121 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+enum EventFormat {
+  ONLINE
+  OFFLINE
+}
+
+enum RegistrationStatus {
+  REGISTERED
+  CANCELED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  fullName     String?
+  phone        String?
+  role         Role     @default(EMPLOYEE)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  registrations Registration[]
+  feedbacks      Feedback[]
+}
+
+model Category {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  events    Event[]
+}
+
+model Event {
+  id              String      @id @default(uuid())
+  title           String
+  description     String?
+  startAt         DateTime
+  endAt           DateTime
+  format          EventFormat
+  location        String?     // для OFFLINE
+  onlineUrl       String?     // для ONLINE
+  maxParticipants Int?
+  categoryId      String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  category        Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  registrations   Registration[]
+  feedbacks       Feedback[]
+  report          EventReport?
+
+  @@index([startAt])
+  @@index([endAt])
+  @@index([categoryId])
+}
+
+model Registration {
+  id        String              @id @default(uuid())
+  userId    String
+  eventId   String
+  status    RegistrationStatus  @default(REGISTERED)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event     Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId])
+  @@index([eventId])
+  @@index([userId])
+}
+
+model Feedback {
+  id        String   @id @default(uuid())
+  userId    String
+  eventId   String
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId])
+  @@index([eventId])
+  @@index([userId])
+}
+
+model EventReport {
+  id        String   @id @default(uuid())
+  eventId   String   @unique
+  text      String?
+  createdAt DateTime @default(now())
+
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  photos    ReportPhoto[]
+}
+
+model ReportPhoto {
+  id        String    @id @default(uuid())
+  reportId  String
+  url       String
+  createdAt DateTime  @default(now())
+
+  report    EventReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+}
