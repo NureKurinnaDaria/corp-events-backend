@@ -20,4 +20,9 @@ export class RegisterDto {
   @IsOptional()
   @IsString()
   phone?: string;
+
+  @ApiPropertyOptional({ example: 'Frontend Developer' })
+  @IsOptional()
+  @IsString()
+  position?: string;
 }

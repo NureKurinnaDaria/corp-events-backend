@@ -16,48 +16,66 @@ enum EventFormat {
   OFFLINE
 }
 
+enum EventStatus {
+  PUBLISHED
+  ONGOING
+  COMPLETED
+  CANCELED
+}
+
 enum RegistrationStatus {
   REGISTERED
   CANCELED
 }
 
+enum NotificationType {
+  EVENT_CREATED
+  FEEDBACK_REMINDER
+}
+
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String
-  fullName     String?
-  phone        String?
-  role         Role     @default(EMPLOYEE)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            String         @id @default(uuid())
+  email         String         @unique
+  passwordHash  String
+  fullName      String?
+  phone         String?
+  position      String?
+  avatarUrl     String?
+  role          Role           @default(EMPLOYEE)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
   registrations Registration[]
-  feedbacks      Feedback[]
+  feedbacks     Feedback[]
+  createdEvents Event[]        @relation("EventCreator")
+  notifications Notification[]
 }
 
 model Category {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  createdAt DateTime @default(now())
+  id     String  @id @default(uuid())
+  name   String  @unique
 
-  events    Event[]
+  events Event[]
 }
 
 model Event {
-  id              String      @id @default(uuid())
+  id              String          @id @default(uuid())
   title           String
   description     String?
   startAt         DateTime
   endAt           DateTime
   format          EventFormat
-  location        String?     // для OFFLINE
-  onlineUrl       String?     // для ONLINE
+  status          EventStatus     @default(PUBLISHED)
+  location        String?
+  onlineUrl       String?
   maxParticipants Int?
   categoryId      String?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  createdById     String
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
-  category        Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  category        Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  createdBy       User            @relation("EventCreator", fields: [createdById], references: [id], onDelete: Cascade)
   registrations   Registration[]
   feedbacks       Feedback[]
   report          EventReport?
@@ -65,6 +83,8 @@ model Event {
   @@index([startAt])
   @@index([endAt])
   @@index([categoryId])
+  @@index([createdById])
+  @@index([status])
 }
 
 model Registration {
@@ -81,6 +101,7 @@ model Registration {
   @@unique([userId, eventId])
   @@index([eventId])
   @@index([userId])
+  @@index([status])
 }
 
 model Feedback {
@@ -100,22 +121,39 @@ model Feedback {
 }
 
 model EventReport {
-  id        String   @id @default(uuid())
-  eventId   String   @unique
+  id        String        @id @default(uuid())
+  eventId   String        @unique
   text      String?
-  createdAt DateTime @default(now())
+  createdAt DateTime      @default(now())
 
-  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event     Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
   photos    ReportPhoto[]
 }
 
 model ReportPhoto {
-  id        String    @id @default(uuid())
+  id        String      @id @default(uuid())
   reportId  String
   url       String
-  createdAt DateTime  @default(now())
+  createdAt DateTime    @default(now())
 
   report    EventReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
 
   @@index([reportId])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      NotificationType
+  isRead    Boolean          @default(false)
+  eventId   String?
+  createdAt DateTime         @default(now())
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
 }
