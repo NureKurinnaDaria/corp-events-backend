@@ -15,12 +15,9 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { Role } from '@prisma/client';
-import { Auth } from './decorators/auth.decorator';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -49,13 +46,5 @@ export class AuthController {
   @Get('me')
   me(@Req() req: any) {
     return req.user;
-  }
-
-  @ApiOperation({ summary: 'Check admin-only access' })
-  @ApiResponse({ status: 200, description: 'Access granted for admin' })
-  @Auth(Role.ADMIN)
-  @Get('admin-only')
-  adminOnly() {
-    return { ok: true, message: 'You are ADMIN' };
   }
 }
