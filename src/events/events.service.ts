@@ -9,10 +9,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { GetEventsQueryDto } from './dto/get-events-query.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class EventsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   private readonly employeeVisibleStatuses: EventStatus[] = [
     EventStatus.PUBLISHED,
@@ -75,7 +79,7 @@ export class EventsService {
   async create(userId: string, dto: CreateEventDto) {
     await this.validateEventData(dto);
 
-    return this.prisma.event.create({
+    const event = await this.prisma.event.create({
       data: {
         title: dto.title,
         description: dto.description,
@@ -98,6 +102,11 @@ export class EventsService {
         },
       },
     });
+
+    // Нотифікуємо всіх EMPLOYEE про нову подію (fire-and-forget)
+    void this.notificationsService.notifyAllEmployeesOnEventCreated(event.id);
+
+    return event;
   }
 
   async findAll(query: GetEventsQueryDto, role: Role) {
@@ -215,7 +224,7 @@ export class EventsService {
 
     await this.validateEventData(mergedData, true);
 
-    return this.prisma.event.update({
+    const updated = await this.prisma.event.update({
       where: { id },
       data: {
         title: dto.title,
@@ -238,6 +247,16 @@ export class EventsService {
         },
       },
     });
+
+    // Якщо статус змінився на COMPLETED — надсилаємо feedback reminder
+    if (
+      dto.status === EventStatus.COMPLETED &&
+      existingEvent.status !== EventStatus.COMPLETED
+    ) {
+      void this.notificationsService.notifyRegisteredUsersOnEventCompleted(id);
+    }
+
+    return updated;
   }
 
   async remove(id: string) {
