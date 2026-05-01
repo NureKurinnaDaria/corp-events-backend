@@ -1,28 +1,28 @@
-import { IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEmail, IsString, Matches, MinLength } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class RegisterDto {
   @ApiProperty({ example: 'test@mail.com' })
   @IsEmail()
   email: string;
 
-  @ApiProperty({ example: '123456', minLength: 6 })
+  @ApiProperty({ example: 'Password1', minLength: 8 })
   @IsString()
-  @MinLength(6)
+  @MinLength(8)
+  @Matches(/(?=.*[A-Z])(?=.*[0-9])/, {
+    message: 'Пароль має містити хоча б одну велику літеру та одну цифру',
+  })
   password: string;
 
-  @ApiPropertyOptional({ example: 'Test User' })
-  @IsOptional()
+  @ApiProperty({ example: 'Test User' })
   @IsString()
-  fullName?: string;
+  fullName: string;
 
-  @ApiPropertyOptional({ example: '+380000000000' })
-  @IsOptional()
+  @ApiProperty({ example: '+380000000000' })
   @IsString()
-  phone?: string;
+  phone: string;
 
-  @ApiPropertyOptional({ example: 'Frontend Developer' })
-  @IsOptional()
+  @ApiProperty({ example: 'Frontend Developer' })
   @IsString()
-  position?: string;
+  position: string;
 }
