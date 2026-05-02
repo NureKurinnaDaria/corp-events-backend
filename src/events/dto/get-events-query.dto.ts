@@ -29,4 +29,12 @@ export class GetEventsQueryDto {
   @IsOptional()
   @IsIn(['asc', 'desc'])
   sortOrder?: 'asc' | 'desc';
+
+  @ApiPropertyOptional({
+    example: 'this_week',
+    enum: ['this_week', 'this_month'],
+  })
+  @IsOptional()
+  @IsIn(['this_week', 'this_month'])
+  date?: 'this_week' | 'this_month';
 }

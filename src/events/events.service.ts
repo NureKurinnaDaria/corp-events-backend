@@ -20,7 +20,6 @@ export class EventsService {
 
   private readonly employeeVisibleStatuses: EventStatus[] = [
     EventStatus.PUBLISHED,
-    EventStatus.ONGOING,
   ];
 
   private async validateEventData(
@@ -159,7 +158,28 @@ export class EventsService {
       }
     }
 
-    return this.prisma.event.findMany({
+    if (query.date) {
+      const now = new Date();
+      if (query.date === 'this_week') {
+        const endOfWeek = new Date(now);
+        endOfWeek.setDate(now.getDate() + (7 - now.getDay()));
+        endOfWeek.setHours(23, 59, 59, 999);
+        where.startAt = { gte: now, lte: endOfWeek };
+      } else if (query.date === 'this_month') {
+        const endOfMonth = new Date(
+          now.getFullYear(),
+          now.getMonth() + 1,
+          0,
+          23,
+          59,
+          59,
+          999,
+        );
+        where.startAt = { gte: now, lte: endOfMonth };
+      }
+    }
+
+    const events = await this.prisma.event.findMany({
       where,
       orderBy: {
         startAt: sortOrder,
@@ -171,8 +191,23 @@ export class EventsService {
             name: true,
           },
         },
+        _count: {
+          select: {
+            registrations: {
+              where: {
+                status: 'REGISTERED',
+              },
+            },
+          },
+        },
       },
     });
+
+    return events.map((event) => ({
+      ...event,
+      participantsCount: event._count.registrations,
+      _count: undefined,
+    }));
   }
 
   async findOne(id: string, role: Role) {
@@ -183,6 +218,15 @@ export class EventsService {
           select: {
             id: true,
             name: true,
+          },
+        },
+        _count: {
+          select: {
+            registrations: {
+              where: {
+                status: 'REGISTERED',
+              },
+            },
           },
         },
       },
@@ -199,7 +243,11 @@ export class EventsService {
       throw new ForbiddenException('You do not have access to this event');
     }
 
-    return event;
+    return {
+      ...event,
+      participantsCount: event._count.registrations,
+      _count: undefined,
+    };
   }
 
   async update(id: string, dto: UpdateEventDto) {

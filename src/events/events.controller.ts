@@ -34,7 +34,7 @@ export class EventsController {
   @Auth(Role.ADMIN)
   @Post()
   create(@Req() req: any, @Body() dto: CreateEventDto) {
-    return this.eventsService.create(req.user.userId, dto);
+    return this.eventsService.create(req.user.id, dto);
   }
 
   @ApiOperation({ summary: 'Get events list with filters and sorting' })

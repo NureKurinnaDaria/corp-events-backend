@@ -21,7 +21,7 @@ export class RegistrationsController {
   @Auth(Role.EMPLOYEE)
   @Post(':eventId')
   register(@Param('eventId') eventId: string, @Req() req: any) {
-    return this.registrationsService.register(eventId, req.user.userId);
+    return this.registrationsService.register(eventId, req.user.id);
   }
 
   @ApiOperation({
@@ -34,7 +34,7 @@ export class RegistrationsController {
   @Auth(Role.EMPLOYEE)
   @Patch(':eventId/cancel')
   cancel(@Param('eventId') eventId: string, @Req() req: any) {
-    return this.registrationsService.cancel(eventId, req.user.userId);
+    return this.registrationsService.cancel(eventId, req.user.id);
   }
 
   @ApiOperation({
@@ -48,7 +48,7 @@ export class RegistrationsController {
   @Auth(Role.EMPLOYEE)
   @Get('my')
   getMyRegistrations(@Req() req: any) {
-    return this.registrationsService.getMyRegistrations(req.user.userId);
+    return this.registrationsService.getMyRegistrations(req.user.id);
   }
 
   @ApiOperation({ summary: 'Get registrations for a specific event' })
