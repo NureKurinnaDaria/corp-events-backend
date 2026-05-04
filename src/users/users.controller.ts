@@ -22,7 +22,7 @@ export class UsersController {
   @Auth(Role.ADMIN, Role.EMPLOYEE)
   @Get('profile')
   getProfile(@Req() req: any) {
-    return this.usersService.getProfile(req.user.userId);
+    return this.usersService.getProfile(req.user.id);
   }
 
   @ApiOperation({ summary: 'Update current user profile' })
@@ -30,6 +30,6 @@ export class UsersController {
   @Auth(Role.ADMIN, Role.EMPLOYEE)
   @Patch('profile')
   updateProfile(@Req() req: any, @Body() dto: UpdateProfileDto) {
-    return this.usersService.updateProfile(req.user.userId, dto);
+    return this.usersService.updateProfile(req.user.id, dto);
   }
 }
