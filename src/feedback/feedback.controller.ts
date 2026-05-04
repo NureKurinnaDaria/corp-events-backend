@@ -25,14 +25,14 @@ export class FeedbackController {
   @Auth(Role.EMPLOYEE)
   @ApiOperation({ summary: 'Create feedback for a completed event' })
   create(@Body() createFeedbackDto: CreateFeedbackDto, @Req() req: any) {
-    return this.feedbackService.create(createFeedbackDto, req.user.userId);
+    return this.feedbackService.create(createFeedbackDto, req.user.id);
   }
 
   @Get('my')
   @Auth(Role.EMPLOYEE)
   @ApiOperation({ summary: 'Get current employee feedbacks' })
   findMyFeedbacks(@Req() req: any) {
-    return this.feedbackService.findMyFeedbacks(req.user.userId);
+    return this.feedbackService.findMyFeedbacks(req.user.id);
   }
 
   @Get('event/:eventId')
@@ -57,13 +57,13 @@ export class FeedbackController {
     @Body() updateFeedbackDto: UpdateFeedbackDto,
     @Req() req: any,
   ) {
-    return this.feedbackService.update(id, updateFeedbackDto, req.user.userId);
+    return this.feedbackService.update(id, updateFeedbackDto, req.user.id);
   }
 
   @Delete(':id')
   @Auth(Role.EMPLOYEE, Role.ADMIN)
   @ApiOperation({ summary: 'Delete feedback by ID' })
   remove(@Param('id') id: string, @Req() req: any) {
-    return this.feedbackService.remove(id, req.user.userId, req.user.role);
+    return this.feedbackService.remove(id, req.user.id, req.user.role);
   }
 }

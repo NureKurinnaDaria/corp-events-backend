@@ -184,23 +184,46 @@ export class RegistrationsService {
                 name: true,
               },
             },
+            _count: {
+              select: {
+                registrations: {
+                  where: {
+                    status: RegistrationStatus.REGISTERED,
+                  },
+                },
+              },
+            },
           },
         },
       },
     });
 
-    const upcoming = registrations.filter(
-      (registration) => registration.event.status !== EventStatus.COMPLETED,
-    );
+    const mapRegistration = (reg: (typeof registrations)[number]) => ({
+      ...reg,
+      event: {
+        ...reg.event,
+        participantsCount: reg.event._count.registrations,
+        _count: undefined,
+      },
+    });
 
-    const completed = registrations.filter(
-      (registration) => registration.event.status === EventStatus.COMPLETED,
-    );
+    const upcoming = registrations
+      .filter(
+        (reg) =>
+          reg.event.status !== EventStatus.COMPLETED &&
+          reg.status === RegistrationStatus.REGISTERED,
+      )
+      .map(mapRegistration);
 
-    return {
-      upcoming,
-      completed,
-    };
+    const completed = registrations
+      .filter(
+        (reg) =>
+          reg.event.status === EventStatus.COMPLETED &&
+          reg.status === RegistrationStatus.REGISTERED,
+      )
+      .map(mapRegistration);
+
+    return { upcoming, completed };
   }
 
   async getEventRegistrations(eventId: string) {
