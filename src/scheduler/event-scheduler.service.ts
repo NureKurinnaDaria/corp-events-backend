@@ -36,7 +36,7 @@ export class EventSchedulerService {
 
     const toCompleted = await this.prisma.event.findMany({
       where: {
-        status: EventStatus.ONGOING,
+        status: { in: [EventStatus.ONGOING, EventStatus.PUBLISHED] },
         endAt: { lte: now },
       },
       select: { id: true },
