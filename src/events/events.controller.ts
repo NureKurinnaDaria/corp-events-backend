@@ -16,7 +16,6 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
-
 import { Auth } from '../auth/decorators/auth.decorator';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -61,7 +60,18 @@ export class EventsController {
     return this.eventsService.update(id, dto);
   }
 
-  @ApiOperation({ summary: 'Delete event by id if no registrations exist' })
+  @ApiOperation({ summary: 'Cancel event by id' })
+  @ApiResponse({ status: 200, description: 'Event canceled successfully' })
+  @Auth(Role.ADMIN)
+  @Patch(':id/cancel')
+  cancel(@Param('id') id: string) {
+    return this.eventsService.cancel(id);
+  }
+
+  @ApiOperation({
+    summary:
+      'Delete event by id. Allowed only for DRAFT or CANCELED events without active registrations',
+  })
   @ApiResponse({ status: 200, description: 'Event deleted successfully' })
   @Auth(Role.ADMIN)
   @Delete(':id')

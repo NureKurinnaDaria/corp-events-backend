@@ -1,4 +1,12 @@
-import { Controller, Get, Param, Patch, Post, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Req,
+  Delete,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -60,5 +68,15 @@ export class RegistrationsController {
   @Get('event/:eventId')
   getEventRegistrations(@Param('eventId') eventId: string) {
     return this.registrationsService.getEventRegistrations(eventId);
+  }
+  @ApiOperation({ summary: 'Admin cancel a registration by ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Registration canceled by admin successfully',
+  })
+  @Auth(Role.ADMIN)
+  @Delete(':registrationId/admin-cancel')
+  adminCancelRegistration(@Param('registrationId') registrationId: string) {
+    return this.registrationsService.adminCancelRegistration(registrationId);
   }
 }

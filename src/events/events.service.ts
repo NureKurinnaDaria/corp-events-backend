@@ -284,7 +284,6 @@ export class EventsService {
         onlineUrl: dto.onlineUrl,
         maxParticipants: dto.maxParticipants,
         categoryId: dto.categoryId,
-        status: dto.status,
       },
       include: {
         category: {
@@ -293,39 +292,108 @@ export class EventsService {
             name: true,
           },
         },
-      },
-    });
-
-    // Якщо статус змінився на COMPLETED — надсилаємо feedback reminder
-    if (
-      dto.status === EventStatus.COMPLETED &&
-      existingEvent.status !== EventStatus.COMPLETED
-    ) {
-      void this.notificationsService.notifyRegisteredUsersOnEventCompleted(id);
-    }
-
-    return updated;
-  }
-
-  async remove(id: string) {
-    const existingEvent = await this.prisma.event.findUnique({
-      where: { id },
-      include: {
-        registrations: {
+        _count: {
           select: {
-            id: true,
+            registrations: {
+              where: { status: 'REGISTERED' },
+            },
           },
         },
       },
+    });
+
+    const changedFields = {
+      startAt: !!dto.startAt,
+      endAt: !!dto.endAt,
+      location: !!dto.location,
+      onlineUrl: !!dto.onlineUrl,
+    };
+    const hasImportantChanges = Object.values(changedFields).some(Boolean);
+    if (hasImportantChanges) {
+      void this.notificationsService.notifyRegisteredUsersOnEventUpdated(
+        id,
+        changedFields,
+      );
+    }
+
+    return {
+      ...updated,
+      participantsCount: updated._count.registrations,
+      _count: undefined,
+    };
+  }
+
+  async cancel(id: string) {
+    const existingEvent = await this.prisma.event.findUnique({
+      where: { id },
     });
 
     if (!existingEvent) {
       throw new NotFoundException('Event not found');
     }
 
-    if (existingEvent.registrations.length > 0) {
+    if (
+      existingEvent.status !== EventStatus.PUBLISHED &&
+      existingEvent.status !== EventStatus.ONGOING
+    ) {
       throw new BadRequestException(
-        'Cannot delete event with existing registrations. Use CANCELED status instead.',
+        'Only PUBLISHED or ONGOING events can be canceled',
+      );
+    }
+
+    const updated = await this.prisma.event.update({
+      where: { id },
+      data: { status: EventStatus.CANCELED },
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        _count: {
+          select: {
+            registrations: {
+              where: { status: 'REGISTERED' },
+            },
+          },
+        },
+      },
+    });
+
+    void this.notificationsService.notifyRegisteredUsersOnEventCanceled(id);
+
+    return {
+      ...updated,
+      participantsCount: updated._count.registrations,
+      _count: undefined,
+    };
+  }
+
+  async remove(id: string) {
+    const existingEvent = await this.prisma.event.findUnique({
+      where: { id },
+    });
+
+    if (!existingEvent) {
+      throw new NotFoundException('Event not found');
+    }
+
+    if (existingEvent.status === EventStatus.PUBLISHED) {
+      throw new BadRequestException(
+        'Cannot delete a published event. Cancel it first to notify registered participants.',
+      );
+    }
+
+    if (existingEvent.status === EventStatus.ONGOING) {
+      throw new BadRequestException(
+        'Cannot delete an ongoing event. Cancel it first to notify registered participants.',
+      );
+    }
+
+    if (existingEvent.status === EventStatus.COMPLETED) {
+      throw new BadRequestException(
+        'Cannot delete a completed event. Completed events are archived.',
       );
     }
 

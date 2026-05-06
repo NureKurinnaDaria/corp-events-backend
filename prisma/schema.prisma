@@ -30,6 +30,8 @@ enum RegistrationStatus {
 
 enum NotificationType {
   EVENT_CREATED
+  EVENT_CANCELED
+  EVENT_UPDATED
   FEEDBACK_REMINDER
 }
 

@@ -5,10 +5,14 @@ import {
 } from '@nestjs/common';
 import { EventStatus, RegistrationStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class RegistrationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async register(eventId: string, userId: string) {
     const event = await this.prisma.event.findUnique({
@@ -165,6 +169,50 @@ export class RegistrationsService {
     });
   }
 
+  async adminCancelRegistration(registrationId: string) {
+    const registration = await this.prisma.registration.findUnique({
+      where: { id: registrationId },
+      include: {
+        user: {
+          select: {
+            email: true,
+            fullName: true,
+          },
+        },
+        event: {
+          select: {
+            title: true,
+            startAt: true,
+          },
+        },
+      },
+    });
+
+    if (!registration) {
+      throw new NotFoundException('Registration not found');
+    }
+
+    if (registration.status === RegistrationStatus.CANCELED) {
+      throw new BadRequestException('Registration is already canceled');
+    }
+
+    const updated = await this.prisma.registration.update({
+      where: { id: registrationId },
+      data: { status: RegistrationStatus.CANCELED },
+    });
+
+    await this.notificationsService.sendRegistrationCancelledByAdmin(
+      registration.userId,
+      registration.eventId,
+      registration.user.email,
+      registration.user.fullName ?? '',
+      registration.event.title,
+      registration.event.startAt,
+    );
+
+    return updated;
+  }
+
   async getMyRegistrations(userId: string) {
     const registrations = await this.prisma.registration.findMany({
       where: {
@@ -236,13 +284,9 @@ export class RegistrationsService {
       throw new NotFoundException('Event not found');
     }
 
-    return this.prisma.registration.findMany({
-      where: {
-        eventId,
-      },
-      orderBy: {
-        createdAt: 'asc',
-      },
+    const registrations = await this.prisma.registration.findMany({
+      where: { eventId },
+      orderBy: { createdAt: 'asc' },
       select: {
         id: true,
         status: true,
@@ -260,5 +304,12 @@ export class RegistrationsService {
         },
       },
     });
+
+    return registrations.map((r) => ({
+      registrationId: r.id,
+      status: r.status,
+      registeredAt: r.createdAt,
+      user: r.user,
+    }));
   }
 }
