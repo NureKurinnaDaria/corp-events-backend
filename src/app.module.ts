@@ -10,6 +10,7 @@ import { FeedbackModule } from './feedback/feedback.module';
 import { ReportsModule } from './reports/reports.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { SchedulerModule } from './scheduler/scheduler.module';
     ReportsModule,
     NotificationsModule,
     SchedulerModule,
+    AnalyticsModule,
   ],
 })
 export class AppModule {}
