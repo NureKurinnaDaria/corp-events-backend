@@ -18,7 +18,7 @@ export class CategoriesService {
     });
 
     if (existingCategory) {
-      throw new BadRequestException('Category with this name already exists');
+      throw new BadRequestException('Категорія з такою назвою вже існує');
     }
 
     return this.prisma.category.create({
@@ -74,7 +74,7 @@ export class CategoriesService {
       });
 
       if (categoryWithSameName) {
-        throw new BadRequestException('Category with this name already exists');
+        throw new BadRequestException('Категорія з такою назвою вже існує');
       }
     }
 
@@ -93,6 +93,16 @@ export class CategoriesService {
 
     if (!existingCategory) {
       throw new NotFoundException('Category not found');
+    }
+
+    const eventsCount = await this.prisma.event.count({
+      where: { categoryId: id },
+    });
+
+    if (eventsCount > 0) {
+      throw new BadRequestException(
+        "Неможливо видалити категорію, до якої прив'язані події",
+      );
     }
 
     await this.prisma.category.delete({
