@@ -420,6 +420,64 @@ export class NotificationsService {
   }
 
   /**
+   * Надсилає email зареєстрованим учасникам після публікації звіту
+   */
+  async notifyRegisteredUsersOnReportCreated(eventId: string): Promise<void> {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+    });
+
+    if (!event) return;
+
+    const registrations = await this.prisma.registration.findMany({
+      where: { eventId, status: 'REGISTERED' },
+      include: {
+        user: { select: { id: true, email: true, fullName: true } },
+      },
+    });
+
+    if (registrations.length === 0) return;
+
+    const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #2c3e50;">📋 Звіт про подію опубліковано</h2>
+      <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 16px 0;">
+        <h3 style="color: #34495e; margin-top: 0;">${event.title}</h3>
+        <p style="color: #555;">
+          Адміністратор опублікував звіт про захід.<br/>
+          Ви можете переглянути його у корпоративній системі.
+        </p>
+      </div>
+      <p style="color: #888; font-size: 13px;">Дякуємо за участь у заході!</p>
+    </div>
+  `;
+
+    for (const registration of registrations) {
+      const user = registration.user;
+
+      await this.prisma.notification.create({
+        data: {
+          userId: user.id,
+          title: `Звіт опубліковано: ${event.title}`,
+          message: `Адміністратор опублікував звіт про захід "${event.title}". Перегляньте його у корпоративній системі.`,
+          type: NotificationType.REPORT_PUBLISHED,
+          eventId: event.id,
+        },
+      });
+
+      await this.sendEmail(
+        user.email,
+        `📋 Звіт про подію: ${event.title}`,
+        html,
+      );
+    }
+
+    this.logger.log(
+      `REPORT_PUBLISHED notifications sent for event ${eventId} to ${registrations.length} users`,
+    );
+  }
+
+  /**
    * Отримати всі сповіщення поточного користувача
    */
   async findAllForUser(userId: string) {

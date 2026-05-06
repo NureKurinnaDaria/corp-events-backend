@@ -9,10 +9,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
 import { AddReportPhotoDto } from './dto/add-report-photo.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ReportsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async create(createReportDto: CreateReportDto, currentUserRole: Role) {
     if (currentUserRole !== Role.ADMIN) {
@@ -43,7 +47,7 @@ export class ReportsService {
       throw new BadRequestException('This event already has a report');
     }
 
-    return this.prisma.eventReport.create({
+    const report = await this.prisma.eventReport.create({
       data: {
         eventId,
         text,
@@ -61,6 +65,12 @@ export class ReportsService {
         photos: true,
       },
     });
+
+    void this.notificationsService.notifyRegisteredUsersOnReportCreated(
+      eventId,
+    );
+
+    return report;
   }
 
   async findByEvent(eventId: string) {

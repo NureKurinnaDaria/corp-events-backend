@@ -33,6 +33,7 @@ enum NotificationType {
   EVENT_CANCELED
   EVENT_UPDATED
   FEEDBACK_REMINDER
+  REPORT_PUBLISHED
 }
 
 model User {
