@@ -20,6 +20,7 @@ export class EventsService {
 
   private readonly employeeVisibleStatuses: EventStatus[] = [
     EventStatus.PUBLISHED,
+    EventStatus.ONGOING,
   ];
 
   private async validateEventData(
