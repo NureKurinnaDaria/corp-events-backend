@@ -46,6 +46,7 @@ export class UsersService {
         ...(dto.fullName !== undefined && { fullName: dto.fullName }),
         ...(dto.phone !== undefined && { phone: dto.phone }),
         ...(dto.position !== undefined && { position: dto.position }),
+        ...(dto.avatarUrl !== undefined && { avatarUrl: dto.avatarUrl }),
         ...(dto.password !== undefined && {
           passwordHash: await bcrypt.hash(dto.password, 10),
         }),
