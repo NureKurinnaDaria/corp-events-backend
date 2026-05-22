@@ -214,6 +214,8 @@ export class RegistrationsService {
   }
 
   async getMyRegistrations(userId: string) {
+    const now = new Date();
+
     const registrations = await this.prisma.registration.findMany({
       where: {
         userId,
@@ -255,19 +257,25 @@ export class RegistrationsService {
       },
     });
 
+    // Подія вважається завершеною якщо:
+    // - статус COMPLETED або CANCELED, АБО
+    // - дата закінчення (endAt) вже минула
+    const isEventOver = (reg: (typeof registrations)[number]) =>
+      reg.event.status === EventStatus.COMPLETED ||
+      reg.event.status === EventStatus.CANCELED ||
+      new Date(reg.event.endAt) < now;
+
     const upcoming = registrations
       .filter(
         (reg) =>
-          reg.event.status !== EventStatus.COMPLETED &&
-          reg.status === RegistrationStatus.REGISTERED,
+          !isEventOver(reg) && reg.status === RegistrationStatus.REGISTERED,
       )
       .map(mapRegistration);
 
     const completed = registrations
       .filter(
         (reg) =>
-          reg.event.status === EventStatus.COMPLETED &&
-          reg.status === RegistrationStatus.REGISTERED,
+          isEventOver(reg) && reg.status === RegistrationStatus.REGISTERED,
       )
       .map(mapRegistration);
 
