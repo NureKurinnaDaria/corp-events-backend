@@ -1,4 +1,10 @@
-import { IsEmail, IsString, Matches, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsPhoneNumber,
+  IsString,
+  Matches,
+  MinLength,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class RegisterDto {
@@ -20,6 +26,9 @@ export class RegisterDto {
 
   @ApiProperty({ example: '+380000000000' })
   @IsString()
+  @Matches(/^\+380\d{9}$/, {
+    message: 'Телефон має бути у форматі +380XXXXXXXXX',
+  })
   phone: string;
 
   @ApiProperty({ example: 'Frontend Developer' })

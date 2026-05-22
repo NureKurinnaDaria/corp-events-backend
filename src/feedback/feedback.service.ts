@@ -21,7 +21,7 @@ export class FeedbackService {
     });
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('Користувача не знайдено');
     }
 
     const event = await this.prisma.event.findUnique({
@@ -29,12 +29,12 @@ export class FeedbackService {
     });
 
     if (!event) {
-      throw new NotFoundException('Event not found');
+      throw new NotFoundException('Подію не знайдено');
     }
 
     if (event.status !== EventStatus.COMPLETED) {
       throw new BadRequestException(
-        'Feedback can only be left after the event is completed',
+        'Відгук можна залишити тільки після завершення події',
       );
     }
 
@@ -52,7 +52,7 @@ export class FeedbackService {
       registration.status !== RegistrationStatus.REGISTERED
     ) {
       throw new ForbiddenException(
-        'You cannot leave feedback because you are not registered for this event',
+        'Ви не можете залишити відгук, оскільки не зареєстровані на цю подію',
       );
     }
 
@@ -66,9 +66,7 @@ export class FeedbackService {
     });
 
     if (existingFeedback) {
-      throw new BadRequestException(
-        'You have already left feedback for this event',
-      );
+      throw new BadRequestException('Ви вже залишили відгук для цієї події');
     }
 
     return this.prisma.feedback.create({
@@ -84,6 +82,7 @@ export class FeedbackService {
             id: true,
             fullName: true,
             email: true,
+            avatarUrl: true,
           },
         },
         event: {
@@ -123,7 +122,7 @@ export class FeedbackService {
     });
 
     if (!event) {
-      throw new NotFoundException('Event not found');
+      throw new NotFoundException('Подію не знайдено');
     }
 
     return this.prisma.feedback.findMany({
@@ -135,6 +134,7 @@ export class FeedbackService {
             fullName: true,
             email: true,
             position: true,
+            avatarUrl: true,
           },
         },
       },
@@ -153,6 +153,7 @@ export class FeedbackService {
             id: true,
             fullName: true,
             email: true,
+            avatarUrl: true,
           },
         },
         event: {
@@ -166,7 +167,7 @@ export class FeedbackService {
     });
 
     if (!feedback) {
-      throw new NotFoundException('Feedback not found');
+      throw new NotFoundException('Відгук не знайдено');
     }
 
     return feedback;
@@ -182,13 +183,15 @@ export class FeedbackService {
     });
 
     if (!feedback) {
-      throw new NotFoundException('Feedback not found');
+      throw new NotFoundException('Відгук не знайдено');
     }
 
     const isOwner = feedback.userId === currentUserId;
 
     if (!isOwner) {
-      throw new ForbiddenException('You can only update your own feedback');
+      throw new ForbiddenException(
+        'Ви можете редагувати тільки власний відгук',
+      );
     }
 
     return this.prisma.feedback.update({
@@ -207,6 +210,7 @@ export class FeedbackService {
             id: true,
             fullName: true,
             email: true,
+            avatarUrl: true,
           },
         },
         event: {
@@ -226,14 +230,14 @@ export class FeedbackService {
     });
 
     if (!feedback) {
-      throw new NotFoundException('Feedback not found');
+      throw new NotFoundException('Відгук не знайдено');
     }
 
     const isAdmin = currentUserRole === Role.ADMIN;
     const isOwner = feedback.userId === currentUserId;
 
     if (!isAdmin && !isOwner) {
-      throw new ForbiddenException('You can only delete your own feedback');
+      throw new ForbiddenException('Ви можете видаляти тільки власний відгук');
     }
 
     await this.prisma.feedback.delete({
@@ -241,7 +245,7 @@ export class FeedbackService {
     });
 
     return {
-      message: 'Feedback deleted successfully',
+      message: 'Відгук успішно видалено',
     };
   }
 }

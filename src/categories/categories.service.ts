@@ -53,7 +53,7 @@ export class CategoriesService {
     });
 
     if (!category) {
-      throw new NotFoundException('Category not found');
+      throw new NotFoundException('Категорію не знайдено');
     }
 
     return category;
@@ -65,7 +65,7 @@ export class CategoriesService {
     });
 
     if (!existingCategory) {
-      throw new NotFoundException('Category not found');
+      throw new NotFoundException('Категорію не знайдено');
     }
 
     if (dto.name && dto.name !== existingCategory.name) {
@@ -92,7 +92,7 @@ export class CategoriesService {
     });
 
     if (!existingCategory) {
-      throw new NotFoundException('Category not found');
+      throw new NotFoundException('Категорію не знайдено');
     }
 
     const eventsCount = await this.prisma.event.count({
@@ -110,7 +110,7 @@ export class CategoriesService {
     });
 
     return {
-      message: 'Category deleted successfully',
+      message: 'Категорію успішно видалено',
     };
   }
 }

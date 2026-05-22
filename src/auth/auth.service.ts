@@ -23,7 +23,7 @@ export class AuthService {
     });
 
     if (exists) {
-      throw new BadRequestException('Email already in use');
+      throw new BadRequestException('Email вже використовується');
     }
 
     const passwordHash = await bcrypt.hash(dto.password, 10);
@@ -63,13 +63,13 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Невірний email або пароль');
     }
 
     const ok = await bcrypt.compare(dto.password, user.passwordHash);
 
     if (!ok) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Невірний email або пароль');
     }
 
     const publicUser = {

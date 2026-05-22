@@ -16,6 +16,9 @@ export class UpdateProfileDto {
   @ApiPropertyOptional({ example: '+380000000999' })
   @IsOptional()
   @IsString()
+  @Matches(/^\+380\d{9}$/, {
+    message: 'Телефон має бути у форматі +380XXXXXXXXX',
+  })
   phone?: string;
 
   @ApiPropertyOptional({ example: 'Backend Developer' })

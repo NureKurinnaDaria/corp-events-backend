@@ -25,12 +25,12 @@ export class RegistrationsService {
     });
 
     if (!event) {
-      throw new NotFoundException('Event not found');
+      throw new NotFoundException('Подію не знайдено');
     }
 
     if (event.status !== EventStatus.PUBLISHED) {
       throw new BadRequestException(
-        'You can register only for published events',
+        'Реєстрація доступна тільки для опублікованих подій',
       );
     }
 
@@ -44,7 +44,7 @@ export class RegistrationsService {
     });
 
     if (existingRegistration?.status === RegistrationStatus.REGISTERED) {
-      throw new BadRequestException('Registration already exists');
+      throw new BadRequestException('Ви вже зареєстровані на цю подію');
     }
 
     const activeRegistrationsCount = await this.prisma.registration.count({
@@ -59,7 +59,7 @@ export class RegistrationsService {
       event.maxParticipants !== undefined &&
       activeRegistrationsCount >= event.maxParticipants
     ) {
-      throw new BadRequestException('No available places');
+      throw new BadRequestException('Немає вільних місць');
     }
 
     if (existingRegistration?.status === RegistrationStatus.CANCELED) {
@@ -128,11 +128,11 @@ export class RegistrationsService {
     });
 
     if (!registration) {
-      throw new NotFoundException('Registration not found');
+      throw new NotFoundException('Реєстрацію не знайдено');
     }
 
     if (registration.status === RegistrationStatus.CANCELED) {
-      throw new BadRequestException('Registration is already canceled');
+      throw new BadRequestException('Реєстрацію вже скасовано');
     }
 
     if (
@@ -140,7 +140,7 @@ export class RegistrationsService {
       registration.event.status === EventStatus.CANCELED
     ) {
       throw new BadRequestException(
-        'Cannot cancel registration for completed or canceled event',
+        'Неможливо скасувати реєстрацію для завершеної або скасованої події',
       );
     }
 
@@ -189,11 +189,11 @@ export class RegistrationsService {
     });
 
     if (!registration) {
-      throw new NotFoundException('Registration not found');
+      throw new NotFoundException('Реєстрацію не знайдено');
     }
 
     if (registration.status === RegistrationStatus.CANCELED) {
-      throw new BadRequestException('Registration is already canceled');
+      throw new BadRequestException('Реєстрацію вже скасовано');
     }
 
     const updated = await this.prisma.registration.update({
@@ -214,8 +214,6 @@ export class RegistrationsService {
   }
 
   async getMyRegistrations(userId: string) {
-    const now = new Date();
-
     const registrations = await this.prisma.registration.findMany({
       where: {
         userId,
@@ -257,25 +255,20 @@ export class RegistrationsService {
       },
     });
 
-    // Подія вважається завершеною якщо:
-    // - статус COMPLETED або CANCELED, АБО
-    // - дата закінчення (endAt) вже минула
-    const isEventOver = (reg: (typeof registrations)[number]) =>
-      reg.event.status === EventStatus.COMPLETED ||
-      reg.event.status === EventStatus.CANCELED ||
-      new Date(reg.event.endAt) < now;
-
     const upcoming = registrations
       .filter(
         (reg) =>
-          !isEventOver(reg) && reg.status === RegistrationStatus.REGISTERED,
+          reg.event.status !== EventStatus.COMPLETED &&
+          reg.event.status !== EventStatus.CANCELED &&
+          reg.status === RegistrationStatus.REGISTERED,
       )
       .map(mapRegistration);
 
     const completed = registrations
       .filter(
         (reg) =>
-          isEventOver(reg) && reg.status === RegistrationStatus.REGISTERED,
+          reg.event.status === EventStatus.COMPLETED &&
+          reg.status === RegistrationStatus.REGISTERED,
       )
       .map(mapRegistration);
 
@@ -289,7 +282,7 @@ export class RegistrationsService {
     });
 
     if (!event) {
-      throw new NotFoundException('Event not found');
+      throw new NotFoundException('Подію не знайдено');
     }
 
     const registrations = await this.prisma.registration.findMany({

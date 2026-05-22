@@ -20,7 +20,9 @@ export class ReportsService {
 
   async create(createReportDto: CreateReportDto, currentUserRole: Role) {
     if (currentUserRole !== Role.ADMIN) {
-      throw new ForbiddenException('Only admin can create reports');
+      throw new ForbiddenException(
+        'Тільки адміністратор може створювати звіти',
+      );
     }
 
     const { eventId, text } = createReportDto;
@@ -30,12 +32,12 @@ export class ReportsService {
     });
 
     if (!event) {
-      throw new NotFoundException('Event not found');
+      throw new NotFoundException('Подію не знайдено');
     }
 
     if (event.status !== EventStatus.COMPLETED) {
       throw new BadRequestException(
-        'Report can only be created for a completed event',
+        'Звіт можна створити тільки для завершеної події',
       );
     }
 
@@ -44,7 +46,7 @@ export class ReportsService {
     });
 
     if (existingReport) {
-      throw new BadRequestException('This event already has a report');
+      throw new BadRequestException('Для цієї події вже існує звіт');
     }
 
     const report = await this.prisma.eventReport.create({
@@ -79,7 +81,7 @@ export class ReportsService {
     });
 
     if (!event) {
-      throw new NotFoundException('Event not found');
+      throw new NotFoundException('Подію не знайдено');
     }
 
     const report = await this.prisma.eventReport.findUnique({
@@ -103,7 +105,7 @@ export class ReportsService {
     });
 
     if (!report) {
-      throw new NotFoundException('Report not found');
+      throw new NotFoundException('Звіт не знайдено');
     }
 
     return report;
@@ -131,7 +133,7 @@ export class ReportsService {
     });
 
     if (!report) {
-      throw new NotFoundException('Report not found');
+      throw new NotFoundException('Звіт не знайдено');
     }
 
     return report;
@@ -143,7 +145,9 @@ export class ReportsService {
     currentUserRole: Role,
   ) {
     if (currentUserRole !== Role.ADMIN) {
-      throw new ForbiddenException('Only admin can update reports');
+      throw new ForbiddenException(
+        'Тільки адміністратор може редагувати звіти',
+      );
     }
 
     const report = await this.prisma.eventReport.findUnique({
@@ -151,7 +155,7 @@ export class ReportsService {
     });
 
     if (!report) {
-      throw new NotFoundException('Report not found');
+      throw new NotFoundException('Звіт не знайдено');
     }
 
     return this.prisma.eventReport.update({
@@ -180,7 +184,7 @@ export class ReportsService {
 
   async remove(id: string, currentUserRole: Role) {
     if (currentUserRole !== Role.ADMIN) {
-      throw new ForbiddenException('Only admin can delete reports');
+      throw new ForbiddenException('Тільки адміністратор може видаляти звіти');
     }
 
     const report = await this.prisma.eventReport.findUnique({
@@ -188,7 +192,7 @@ export class ReportsService {
     });
 
     if (!report) {
-      throw new NotFoundException('Report not found');
+      throw new NotFoundException('Звіт не знайдено');
     }
 
     await this.prisma.eventReport.delete({
@@ -196,7 +200,7 @@ export class ReportsService {
     });
 
     return {
-      message: 'Report deleted successfully',
+      message: 'Звіт успішно видалено',
     };
   }
 
@@ -206,7 +210,9 @@ export class ReportsService {
     currentUserRole: Role,
   ) {
     if (currentUserRole !== Role.ADMIN) {
-      throw new ForbiddenException('Only admin can add report photos');
+      throw new ForbiddenException(
+        'Тільки адміністратор може додавати фото до звіту',
+      );
     }
 
     const report = await this.prisma.eventReport.findUnique({
@@ -214,7 +220,7 @@ export class ReportsService {
     });
 
     if (!report) {
-      throw new NotFoundException('Report not found');
+      throw new NotFoundException('Звіт не знайдено');
     }
 
     return this.prisma.reportPhoto.create({
@@ -227,7 +233,9 @@ export class ReportsService {
 
   async deletePhoto(photoId: string, currentUserRole: Role) {
     if (currentUserRole !== Role.ADMIN) {
-      throw new ForbiddenException('Only admin can delete report photos');
+      throw new ForbiddenException(
+        'Тільки адміністратор може видаляти фото зі звіту',
+      );
     }
 
     const photo = await this.prisma.reportPhoto.findUnique({
@@ -235,7 +243,7 @@ export class ReportsService {
     });
 
     if (!photo) {
-      throw new NotFoundException('Report photo not found');
+      throw new NotFoundException('Фото звіту не знайдено');
     }
 
     await this.prisma.reportPhoto.delete({
@@ -243,7 +251,7 @@ export class ReportsService {
     });
 
     return {
-      message: 'Report photo deleted successfully',
+      message: 'Фото успішно видалено',
     };
   }
 }

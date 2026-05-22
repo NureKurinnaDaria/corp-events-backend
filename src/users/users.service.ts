@@ -24,7 +24,7 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('Користувача не знайдено');
     }
 
     return user;
@@ -37,7 +37,7 @@ export class UsersService {
     });
 
     if (!existingUser) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('Користувача не знайдено');
     }
 
     const updatedUser = await this.prisma.user.update({

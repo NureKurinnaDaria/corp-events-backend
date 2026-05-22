@@ -40,28 +40,30 @@ export class EventsService {
       const endAt = new Date(dto.endAt);
 
       if (endAt <= startAt) {
-        throw new BadRequestException('endAt must be later than startAt');
+        throw new BadRequestException(
+          'Дата закінчення має бути пізніше дати початку',
+        );
       }
     }
 
     if (!isUpdate || dto.format === EventFormat.ONLINE) {
       if (dto.format === EventFormat.ONLINE && !dto.onlineUrl) {
-        throw new BadRequestException(
-          'onlineUrl is required for ONLINE events',
-        );
+        throw new BadRequestException("Посилання обов'язкове для онлайн-подій");
       }
     }
 
     if (!isUpdate || dto.format === EventFormat.OFFLINE) {
       if (dto.format === EventFormat.OFFLINE && !dto.location) {
         throw new BadRequestException(
-          'location is required for OFFLINE events',
+          "Місце проведення обов'язкове для офлайн-подій",
         );
       }
     }
 
     if (dto.maxParticipants !== undefined && dto.maxParticipants < 1) {
-      throw new BadRequestException('maxParticipants must be greater than 0');
+      throw new BadRequestException(
+        'Максимальна кількість учасників має бути більше 0',
+      );
     }
 
     if (dto.categoryId) {
@@ -71,7 +73,7 @@ export class EventsService {
       });
 
       if (!category) {
-        throw new BadRequestException('Category not found');
+        throw new BadRequestException('Категорію не знайдено');
       }
     }
   }
@@ -144,13 +146,15 @@ export class EventsService {
       where.status = {
         in: this.employeeVisibleStatuses,
       };
+      // Показуємо тільки події що ще не почались
+      where.startAt = { gt: new Date() };
 
       if (
         query.status &&
         !this.employeeVisibleStatuses.includes(query.status)
       ) {
         throw new ForbiddenException(
-          'Employees can only view published or ongoing events',
+          'Співробітники можуть переглядати тільки опубліковані або активні події',
         );
       }
 
@@ -234,14 +238,14 @@ export class EventsService {
     });
 
     if (!event) {
-      throw new NotFoundException('Event not found');
+      throw new NotFoundException('Подію не знайдено');
     }
 
     if (
       role === Role.EMPLOYEE &&
       !this.employeeVisibleStatuses.includes(event.status)
     ) {
-      throw new ForbiddenException('You do not have access to this event');
+      throw new ForbiddenException('Немає доступу до цієї події');
     }
 
     return {
@@ -257,7 +261,7 @@ export class EventsService {
     });
 
     if (!existingEvent) {
-      throw new NotFoundException('Event not found');
+      throw new NotFoundException('Подію не знайдено');
     }
 
     const mergedData = {
@@ -330,7 +334,7 @@ export class EventsService {
     });
 
     if (!existingEvent) {
-      throw new NotFoundException('Event not found');
+      throw new NotFoundException('Подію не знайдено');
     }
 
     if (
@@ -338,7 +342,7 @@ export class EventsService {
       existingEvent.status !== EventStatus.ONGOING
     ) {
       throw new BadRequestException(
-        'Only PUBLISHED or ONGOING events can be canceled',
+        'Скасувати можна тільки опубліковані або активні події',
       );
     }
 
@@ -377,24 +381,24 @@ export class EventsService {
     });
 
     if (!existingEvent) {
-      throw new NotFoundException('Event not found');
+      throw new NotFoundException('Подію не знайдено');
     }
 
     if (existingEvent.status === EventStatus.PUBLISHED) {
       throw new BadRequestException(
-        'Cannot delete a published event. Cancel it first to notify registered participants.',
+        'Неможливо видалити опубліковану подію. Спочатку скасуйте її, щоб сповістити учасників.',
       );
     }
 
     if (existingEvent.status === EventStatus.ONGOING) {
       throw new BadRequestException(
-        'Cannot delete an ongoing event. Cancel it first to notify registered participants.',
+        'Неможливо видалити активну подію. Спочатку скасуйте її, щоб сповістити учасників.',
       );
     }
 
     if (existingEvent.status === EventStatus.COMPLETED) {
       throw new BadRequestException(
-        'Cannot delete a completed event. Completed events are archived.',
+        'Неможливо видалити завершену подію. Завершені події зберігаються в архіві.',
       );
     }
 
@@ -403,7 +407,7 @@ export class EventsService {
     });
 
     return {
-      message: 'Event deleted successfully',
+      message: 'Подію успішно видалено',
     };
   }
 }

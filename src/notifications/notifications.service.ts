@@ -496,7 +496,7 @@ export class NotificationsService {
     });
 
     if (!notification) {
-      return { message: 'Notification not found or access denied' };
+      return { message: 'Сповіщення не знайдено або доступ заборонено' };
     }
 
     return this.prisma.notification.update({
@@ -514,6 +514,6 @@ export class NotificationsService {
       data: { isRead: true },
     });
 
-    return { message: 'All notifications marked as read' };
+    return { message: 'Всі сповіщення позначено як прочитані' };
   }
 }
