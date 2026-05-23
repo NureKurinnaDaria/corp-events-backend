@@ -33,7 +33,6 @@ export class NotificationsService {
       'SMTP_FROM',
       'noreply@corp-events.com',
     );
-
     try {
       await this.transporter.sendMail({ from, to, subject, html });
       this.logger.log(`Email sent to ${to}: ${subject}`);
@@ -44,52 +43,87 @@ export class NotificationsService {
     }
   }
 
-  /**
-   * Надсилає email всім EMPLOYEE при створенні нової події
-   */
-  async notifyAllEmployeesOnEventCreated(eventId: string): Promise<void> {
-    const event = await this.prisma.event.findUnique({
-      where: { id: eventId },
-      include: { category: true },
-    });
-
-    if (!event) return;
-
-    const employees = await this.prisma.user.findMany({
-      where: { role: 'EMPLOYEE' },
-      select: { id: true, email: true, fullName: true },
-    });
-
-    if (employees.length === 0) return;
-
-    const startDate = new Date(event.startAt).toLocaleDateString('uk-UA', {
+  private formatDate(date: Date): string {
+    return new Date(date).toLocaleDateString('uk-UA', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
     });
+  }
 
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #2c3e50;">🎉 Нова корпоративна подія</h2>
-        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 16px 0;">
-          <h3 style="color: #34495e; margin-top: 0;">${event.title}</h3>
-          ${event.description ? `<p style="color: #555;">${event.description}</p>` : ''}
-          <table style="width: 100%; border-collapse: collapse; margin-top: 12px;">
-            <tr><td style="color: #888; padding: 4px 0; width: 140px;">📅 Дата початку:</td><td><strong>${startDate}</strong></td></tr>
-            <tr><td style="color: #888; padding: 4px 0;">📍 Формат:</td><td><strong>${event.format === 'ONLINE' ? 'Онлайн' : 'Офлайн'}</strong></td></tr>
-            ${event.location ? `<tr><td style="color: #888; padding: 4px 0;">🏢 Місце:</td><td><strong>${event.location}</strong></td></tr>` : ''}
-            ${event.onlineUrl ? `<tr><td style="color: #888; padding: 4px 0;">🔗 Посилання:</td><td><a href="${event.onlineUrl}">${event.onlineUrl}</a></td></tr>` : ''}
-            ${event.maxParticipants ? `<tr><td style="color: #888; padding: 4px 0;">👥 Місць:</td><td><strong>${event.maxParticipants}</strong></td></tr>` : ''}
-            ${event.category ? `<tr><td style="color: #888; padding: 4px 0;">🏷️ Категорія:</td><td><strong>${event.category.name}</strong></td></tr>` : ''}
-          </table>
+  private emailWrapper(
+    accentColor: string,
+    title: string,
+    body: string,
+  ): string {
+    return `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
+        <div style="background: ${accentColor}; padding: 24px 32px; border-radius: 8px 8px 0 0;">
+          <h2 style="color: #ffffff; margin: 0; font-size: 20px;">Corp Events</h2>
         </div>
-        <p style="color: #888; font-size: 13px;">Зареєструйтесь на подію через корпоративну систему.</p>
+        <div style="padding: 28px 32px; background: #f8fafc; border-radius: 0 0 8px 8px;">
+          <h3 style="color: #1e293b; margin: 0 0 16px 0; font-size: 18px;">${title}</h3>
+          ${body}
+          <p style="color: #94a3b8; font-size: 12px; margin-top: 24px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+            Корпоративна система управління подіями
+          </p>
+        </div>
       </div>
     `;
+  }
 
-    // Зберігаємо notifications у БД та надсилаємо email
+  /**
+   * Надсилає email всім EMPLOYEE при створенні нової події
+   */
+
+  async notifyAllEmployeesOnEventCreated(eventId: string): Promise<void> {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+      include: { category: true },
+    });
+    if (!event) return;
+
+    const employees = await this.prisma.user.findMany({
+      where: { role: 'EMPLOYEE' },
+      select: { id: true, email: true, fullName: true },
+    });
+    if (employees.length === 0) return;
+
+    const startDate = this.formatDate(event.startAt);
+    const formatLabel = event.format === 'ONLINE' ? 'Онлайн' : 'Офлайн';
+
+    const rows = [
+      `<tr><td style="color:#64748b;padding:6px 0;width:140px;">Дата початку:</td><td><strong>${startDate}</strong></td></tr>`,
+      `<tr><td style="color:#64748b;padding:6px 0;">Формат:</td><td><strong>${formatLabel}</strong></td></tr>`,
+      event.location
+        ? `<tr><td style="color:#64748b;padding:6px 0;">Місце:</td><td><strong>${event.location}</strong></td></tr>`
+        : '',
+      event.onlineUrl
+        ? `<tr><td style="color:#64748b;padding:6px 0;">Посилання:</td><td><a href="${event.onlineUrl}" style="color:#2563eb;">${event.onlineUrl}</a></td></tr>`
+        : '',
+      event.maxParticipants
+        ? `<tr><td style="color:#64748b;padding:6px 0;">Кількість місць:</td><td><strong>${event.maxParticipants}</strong></td></tr>`
+        : '',
+      event.category
+        ? `<tr><td style="color:#64748b;padding:6px 0;">Категорія:</td><td><strong>${event.category.name}</strong></td></tr>`
+        : '',
+    ]
+      .filter(Boolean)
+      .join('');
+
+    const body = `
+      <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:6px;padding:20px;margin-bottom:16px;">
+        <h4 style="margin:0 0 8px 0;color:#1e293b;">${event.title}</h4>
+        ${event.description ? `<p style="color:#475569;margin:0 0 12px 0;">${event.description}</p>` : ''}
+        <table style="width:100%;border-collapse:collapse;">${rows}</table>
+      </div>
+      <p style="color:#475569;">Зареєструйтесь на подію через корпоративну систему.</p>
+    `;
+
+    const html = this.emailWrapper('#2563eb', 'Нова корпоративна подія', body);
+
     for (const employee of employees) {
       await this.prisma.notification.create({
         data: {
@@ -100,10 +134,9 @@ export class NotificationsService {
           eventId: event.id,
         },
       });
-
       await this.sendEmail(
         employee.email,
-        `🎉 Нова корпоративна подія: ${event.title}`,
+        `Нова корпоративна подія: ${event.title}`,
         html,
       );
     }
@@ -111,80 +144,29 @@ export class NotificationsService {
     this.logger.log(
       `EVENT_CREATED notifications sent for event ${eventId} to ${employees.length} employees`,
     );
-  }
 
-  /**
-   * Надсилає email зареєстрованим учасникам при скасуванні події
-   */
-  async notifyRegisteredUsersOnEventCanceled(eventId: string): Promise<void> {
-    const event = await this.prisma.event.findUnique({
-      where: { id: eventId },
-      include: { category: true },
+    // Сповіщення адміну що розсилка відбулась
+    const admins = await this.prisma.user.findMany({
+      where: { role: 'ADMIN' },
+      select: { id: true },
     });
-
-    if (!event) return;
-
-    const registrations = await this.prisma.registration.findMany({
-      where: { eventId, status: 'REGISTERED' },
-      include: {
-        user: { select: { id: true, email: true, fullName: true } },
-      },
-    });
-
-    if (registrations.length === 0) return;
-
-    const startDate = new Date(event.startAt).toLocaleDateString('uk-UA', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-
-    const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #e11d48;">❌ Подію скасовано</h2>
-      <div style="background: #fff1f2; padding: 20px; border-radius: 8px; margin: 16px 0;">
-        <h3 style="color: #34495e; margin-top: 0;">${event.title}</h3>
-        <p style="color: #555;">
-          На жаль, ця подія була скасована адміністратором.
-        </p>
-        <table style="width: 100%; border-collapse: collapse; margin-top: 12px;">
-          <tr><td style="color: #888; padding: 4px 0; width: 140px;">📅 Планована дата:</td><td><strong>${startDate}</strong></td></tr>
-        </table>
-      </div>
-      <p style="color: #888; font-size: 13px;">Слідкуйте за новими подіями у корпоративній системі.</p>
-    </div>
-  `;
-
-    for (const registration of registrations) {
-      const user = registration.user;
-
+    for (const admin of admins) {
       await this.prisma.notification.create({
         data: {
-          userId: user.id,
-          title: `Подію скасовано: ${event.title}`,
-          message: `На жаль, подія "${event.title}", запланована на ${startDate}, була скасована.`,
-          type: NotificationType.EVENT_CANCELED,
+          userId: admin.id,
+          title: `Розсилку надіслано: ${event.title}`,
+          message: `Сповіщення про нову подію "${event.title}" успішно надіслано ${employees.length} ${employees.length === 1 ? 'співробітнику' : 'співробітникам'}.`,
+          type: NotificationType.SYSTEM,
           eventId: event.id,
         },
       });
-
-      await this.sendEmail(
-        user.email,
-        `❌ Подію скасовано: ${event.title}`,
-        html,
-      );
     }
-
-    this.logger.log(
-      `EVENT_CANCELED notifications sent for event ${eventId} to ${registrations.length} users`,
-    );
   }
 
   /**
    * Надсилає email зареєстрованим учасникам при зміні критичних полів події
    */
+
   async notifyRegisteredUsersOnEventUpdated(
     eventId: string,
     changedFields: {
@@ -197,59 +179,43 @@ export class NotificationsService {
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
     });
-
     if (!event) return;
 
     const registrations = await this.prisma.registration.findMany({
       where: { eventId, status: 'REGISTERED' },
-      include: {
-        user: { select: { id: true, email: true, fullName: true } },
-      },
+      include: { user: { select: { id: true, email: true, fullName: true } } },
     });
-
     if (registrations.length === 0) return;
 
-    const startDate = new Date(event.startAt).toLocaleDateString('uk-UA', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-
-    const endDate = new Date(event.endAt).toLocaleDateString('uk-UA', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const startDate = this.formatDate(event.startAt);
+    const endDate = this.formatDate(event.endAt);
 
     const changedLines: string[] = [];
     if (changedFields.startAt)
-      changedLines.push(`📅 Новий початок: <strong>${startDate}</strong>`);
+      changedLines.push(
+        `<li>Новий початок: <strong>${startDate}</strong></li>`,
+      );
     if (changedFields.endAt)
-      changedLines.push(`📅 Новий кінець: <strong>${endDate}</strong>`);
+      changedLines.push(`<li>Новий кінець: <strong>${endDate}</strong></li>`);
     if (changedFields.location)
-      changedLines.push(`🏢 Нове місце: <strong>${event.location}</strong>`);
+      changedLines.push(
+        `<li>Нове місце: <strong>${event.location}</strong></li>`,
+      );
     if (changedFields.onlineUrl)
       changedLines.push(
-        `🔗 Нове посилання: <strong><a href="${event.onlineUrl}">${event.onlineUrl}</a></strong>`,
+        `<li>Нове посилання: <a href="${event.onlineUrl}" style="color:#2563eb;">${event.onlineUrl}</a></li>`,
       );
 
-    const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #d97706;">✏️ Подію оновлено</h2>
-      <div style="background: #fff7ed; padding: 20px; border-radius: 8px; margin: 16px 0;">
-        <h3 style="color: #34495e; margin-top: 0;">${event.title}</h3>
-        <p style="color: #555;">Деталі події, на яку ви зареєстровані, були змінені:</p>
-        <div style="margin-top: 12px; line-height: 2;">
-          ${changedLines.join('<br/>')}
-        </div>
+    const body = `
+      <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:6px;padding:20px;margin-bottom:16px;">
+        <h4 style="margin:0 0 8px 0;color:#1e293b;">${event.title}</h4>
+        <p style="color:#475569;margin:0 0 12px 0;">Деталі події, на яку ви зареєстровані, були змінені:</p>
+        <ul style="color:#475569;padding-left:20px;line-height:2;">${changedLines.join('')}</ul>
       </div>
-      <p style="color: #888; font-size: 13px;">Перевірте актуальну інформацію у корпоративній системі.</p>
-    </div>
-  `;
+      <p style="color:#475569;">Перевірте актуальну інформацію у корпоративній системі.</p>
+    `;
+
+    const html = this.emailWrapper('#7c3aed', 'Подію оновлено', body);
 
     const changedFieldsUa = [
       changedFields.startAt && 'час початку',
@@ -262,7 +228,6 @@ export class NotificationsService {
 
     for (const registration of registrations) {
       const user = registration.user;
-
       await this.prisma.notification.create({
         data: {
           userId: user.id,
@@ -272,12 +237,7 @@ export class NotificationsService {
           eventId: event.id,
         },
       });
-
-      await this.sendEmail(
-        user.email,
-        `✏️ Подію оновлено: ${event.title}`,
-        html,
-      );
+      await this.sendEmail(user.email, `Подію оновлено: ${event.title}`, html);
     }
 
     this.logger.log(
@@ -286,80 +246,246 @@ export class NotificationsService {
   }
 
   /**
-   * Надсилає email зареєстрованим учасникам після завершення події з нагадуванням залишити feedback
+   * Надсилає email зареєстрованим учасникам при скасуванні події
    */
-  async notifyRegisteredUsersOnEventCompleted(eventId: string): Promise<void> {
+
+  async notifyRegisteredUsersOnEventCanceled(eventId: string): Promise<void> {
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
+      include: { category: true },
     });
-
-    if (!event || event.status !== EventStatus.COMPLETED) return;
+    if (!event) return;
 
     const registrations = await this.prisma.registration.findMany({
-      where: {
-        eventId,
-        status: 'REGISTERED',
-      },
-      include: {
-        user: {
-          select: { id: true, email: true, fullName: true },
-        },
-      },
+      where: { eventId, status: 'REGISTERED' },
+      include: { user: { select: { id: true, email: true, fullName: true } } },
     });
+    if (registrations.length === 0) return;
 
-    // Знаходимо тих, хто ще не залишив feedback
-    const feedbacks = await this.prisma.feedback.findMany({
-      where: { eventId },
-      select: { userId: true },
-    });
-    const usersWithFeedback = new Set(feedbacks.map((f) => f.userId));
+    const startDate = this.formatDate(event.startAt);
 
-    const usersToNotify = registrations
-      .map((r) => r.user)
-      .filter((u) => !usersWithFeedback.has(u.id));
-
-    if (usersToNotify.length === 0) return;
-
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #2c3e50;">📝 Залиште відгук про подію</h2>
-        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 16px 0;">
-          <h3 style="color: #34495e; margin-top: 0;">${event.title}</h3>
-          <p style="color: #555;">
-            Захід завершено! Ваша думка важлива для нас.<br/>
-            Будь ласка, залиште відгук і оцінку (від 1 до 5), щоб ми могли покращити майбутні події.
-          </p>
-        </div>
-        <p style="color: #888; font-size: 13px;">Відгук можна залишити у корпоративній системі в розділі «Feedback».</p>
+    const body = `
+      <div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:6px;padding:20px;margin-bottom:16px;">
+        <h4 style="margin:0 0 8px 0;color:#1e293b;">${event.title}</h4>
+        <p style="color:#475569;margin:0 0 8px 0;">На жаль, цю подію було скасовано адміністратором.</p>
+        <p style="color:#64748b;margin:0;">Планована дата: <strong>${startDate}</strong></p>
       </div>
+      <p style="color:#475569;">Слідкуйте за новими подіями у корпоративній системі.</p>
     `;
 
-    for (const user of usersToNotify) {
+    const html = this.emailWrapper('#e11d48', 'Подію скасовано', body);
+
+    for (const registration of registrations) {
+      const user = registration.user;
       await this.prisma.notification.create({
         data: {
           userId: user.id,
-          title: `Залиште відгук: ${event.title}`,
-          message: `Захід "${event.title}" завершено. Будь ласка, залиште свій відгук.`,
-          type: NotificationType.FEEDBACK_REMINDER,
+          title: `Подію скасовано: ${event.title}`,
+          message: `На жаль, подія "${event.title}", запланована на ${startDate}, була скасована.`,
+          type: NotificationType.EVENT_CANCELED,
           eventId: event.id,
         },
       });
-
-      await this.sendEmail(
-        user.email,
-        `📝 Залиште відгук про подію: ${event.title}`,
-        html,
-      );
+      await this.sendEmail(user.email, `Подію скасовано: ${event.title}`, html);
     }
 
     this.logger.log(
-      `FEEDBACK_REMINDER notifications sent for event ${eventId} to ${usersToNotify.length} users`,
+      `EVENT_CANCELED notifications sent for event ${eventId} to ${registrations.length} users`,
     );
   }
 
   /**
-   * Надсилає email користувачу при скасуванні його реєстрації адміном
+   * Надсилає нагадування зареєстрованим учасникам за вказану кількість годин до початку
    */
+
+  async sendEventReminders(hoursBeforeStart: number): Promise<void> {
+    const now = new Date();
+    const windowStart = new Date(
+      now.getTime() + hoursBeforeStart * 60 * 60 * 1000,
+    );
+    const windowEnd = new Date(windowStart.getTime() + 31 * 60 * 1000); // вікно 31 хвилина (перекриває інтервал крона)
+
+    const events = await this.prisma.event.findMany({
+      where: {
+        status: EventStatus.PUBLISHED,
+        startAt: { gte: windowStart, lt: windowEnd },
+      },
+      select: {
+        id: true,
+        title: true,
+        format: true,
+        startAt: true,
+        location: true,
+        onlineUrl: true,
+      },
+    });
+
+    for (const event of events) {
+      // Перевіряємо чи вже надсилали нагадування з таким часом
+      const reminderLabel = `reminder_${hoursBeforeStart}h`;
+      const alreadySent = await this.prisma.notification.findFirst({
+        where: {
+          eventId: event.id,
+          type: NotificationType.EVENT_UPDATED,
+          message: { contains: reminderLabel },
+        },
+      });
+      if (alreadySent) continue;
+
+      const registrations = await this.prisma.registration.findMany({
+        where: { eventId: event.id, status: 'REGISTERED' },
+        include: {
+          user: { select: { id: true, email: true, fullName: true } },
+        },
+      });
+      if (registrations.length === 0) continue;
+
+      const startDate = this.formatDate(event.startAt);
+      const timeLabel =
+        hoursBeforeStart >= 24
+          ? `${hoursBeforeStart / 24} ${hoursBeforeStart / 24 === 1 ? 'день' : 'дні'}`
+          : `${hoursBeforeStart} ${hoursBeforeStart === 1 ? 'годину' : 'годин'}`;
+
+      const locationRow =
+        event.format === 'OFFLINE' && event.location
+          ? `<p style="color:#64748b;margin:4px 0;">Місце: <strong>${event.location}</strong></p>`
+          : event.format === 'ONLINE' && event.onlineUrl
+            ? `<p style="color:#64748b;margin:4px 0;">Посилання: <a href="${event.onlineUrl}" style="color:#2563eb;">${event.onlineUrl}</a></p>`
+            : '';
+
+      const body = `
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:6px;padding:20px;margin-bottom:16px;">
+          <h4 style="margin:0 0 8px 0;color:#1e293b;">${event.title}</h4>
+          <p style="color:#475569;margin:0 0 8px 0;">Нагадуємо, що до початку події залишилось <strong>${timeLabel}</strong>.</p>
+          <p style="color:#64748b;margin:4px 0;">Дата початку: <strong>${startDate}</strong></p>
+          ${locationRow}
+        </div>
+        <p style="color:#475569;">Не пропустіть захід!</p>
+      `;
+
+      const html = this.emailWrapper('#2563eb', `Нагадування про подію`, body);
+
+      for (const reg of registrations) {
+        const user = reg.user;
+        await this.prisma.notification.create({
+          data: {
+            userId: user.id,
+            title: `Нагадування: ${event.title}`,
+            message: `[${reminderLabel}] До початку події "${event.title}" залишилось ${timeLabel}. Захід розпочнеться ${startDate}.`,
+            type: NotificationType.EVENT_UPDATED,
+            eventId: event.id,
+          },
+        });
+        await this.sendEmail(
+          user.email,
+          `Нагадування: ${event.title} — через ${timeLabel}`,
+          html,
+        );
+      }
+
+      this.logger.log(
+        `Reminders (${hoursBeforeStart}h) sent for event ${event.id} to ${registrations.length} users`,
+      );
+    }
+  }
+
+  /**
+   * Надсилає нагадування лише для подій конкретного формату (OFFLINE/ONLINE)
+   */
+  async sendEventRemindersForFormat(
+    hoursBeforeStart: number,
+    format: string,
+  ): Promise<void> {
+    const now = new Date();
+    const windowStart = new Date(
+      now.getTime() + hoursBeforeStart * 60 * 60 * 1000,
+    );
+    const windowEnd = new Date(windowStart.getTime() + 31 * 60 * 1000);
+
+    const events = await this.prisma.event.findMany({
+      where: {
+        status: EventStatus.PUBLISHED,
+        format: format as any,
+        startAt: { gte: windowStart, lt: windowEnd },
+      },
+      select: {
+        id: true,
+        title: true,
+        format: true,
+        startAt: true,
+        location: true,
+        onlineUrl: true,
+      },
+    });
+
+    for (const event of events) {
+      const reminderLabel = `reminder_${hoursBeforeStart}h`;
+      const alreadySent = await this.prisma.notification.findFirst({
+        where: {
+          eventId: event.id,
+          type: NotificationType.EVENT_UPDATED,
+          message: { contains: reminderLabel },
+        },
+      });
+      if (alreadySent) continue;
+
+      const registrations = await this.prisma.registration.findMany({
+        where: { eventId: event.id, status: 'REGISTERED' },
+        include: {
+          user: { select: { id: true, email: true, fullName: true } },
+        },
+      });
+      if (registrations.length === 0) continue;
+
+      const startDate = this.formatDate(event.startAt);
+      const timeLabel =
+        hoursBeforeStart >= 1
+          ? `${hoursBeforeStart} ${hoursBeforeStart === 1 ? 'годину' : 'годин'}`
+          : `${hoursBeforeStart * 60} хвилин`;
+
+      const locationRow =
+        format === 'OFFLINE' && event.location
+          ? `<p style="color:#64748b;margin:4px 0;">Місце: <strong>${event.location}</strong></p>`
+          : format === 'ONLINE' && event.onlineUrl
+            ? `<p style="color:#64748b;margin:4px 0;">Посилання: <a href="${event.onlineUrl}" style="color:#2563eb;">${event.onlineUrl}</a></p>`
+            : '';
+
+      const body = `
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:6px;padding:20px;margin-bottom:16px;">
+          <h4 style="margin:0 0 8px 0;color:#1e293b;">${event.title}</h4>
+          <p style="color:#475569;margin:0 0 8px 0;">Нагадуємо, що до початку події залишилось <strong>${timeLabel}</strong>.</p>
+          <p style="color:#64748b;margin:4px 0;">Дата початку: <strong>${startDate}</strong></p>
+          ${locationRow}
+        </div>
+        <p style="color:#475569;">Не пропустіть захід!</p>
+      `;
+
+      const html = this.emailWrapper('#2563eb', `Нагадування про подію`, body);
+
+      for (const reg of registrations) {
+        const user = reg.user;
+        await this.prisma.notification.create({
+          data: {
+            userId: user.id,
+            title: `Нагадування: ${event.title}`,
+            message: `[${reminderLabel}] До початку події "${event.title}" залишилось ${timeLabel}. Захід розпочнеться ${startDate}.`,
+            type: NotificationType.EVENT_UPDATED,
+            eventId: event.id,
+          },
+        });
+        await this.sendEmail(
+          user.email,
+          `Нагадування: ${event.title} — через ${timeLabel}`,
+          html,
+        );
+      }
+
+      this.logger.log(
+        `Reminders (${hoursBeforeStart}h, ${format}) sent for event ${event.id} to ${registrations.length} users`,
+      );
+    }
+  }
+
   async sendRegistrationCancelledByAdmin(
     userId: string,
     eventId: string,
@@ -368,35 +494,23 @@ export class NotificationsService {
     eventTitle: string,
     eventStartAt: Date,
   ): Promise<void> {
-    const startDate = new Date(eventStartAt).toLocaleDateString('uk-UA', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const startDate = this.formatDate(eventStartAt);
 
-    const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #e11d48;">❌ Вашу реєстрацію скасовано</h2>
-      <div style="background: #fff1f2; padding: 20px; border-radius: 8px; margin: 16px 0;">
-        <p style="color: #555;">Шановний(а) <strong>${userFullName}</strong>,</p>
-        <p style="color: #555;">
-          Адміністратор скасував вашу реєстрацію на подію:
-        </p>
-        <h3 style="color: #34495e;">${eventTitle}</h3>
-        <table style="width: 100%; border-collapse: collapse; margin-top: 12px;">
-          <tr>
-            <td style="color: #888; padding: 4px 0; width: 140px;">📅 Дата події:</td>
-            <td><strong>${startDate}</strong></td>
-          </tr>
-        </table>
+    const body = `
+      <div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:6px;padding:20px;margin-bottom:16px;">
+        <p style="color:#475569;margin:0 0 8px 0;">Шановний(а) <strong>${userFullName}</strong>,</p>
+        <p style="color:#475569;margin:0 0 8px 0;">Адміністратор скасував вашу реєстрацію на подію:</p>
+        <h4 style="color:#1e293b;margin:0 0 8px 0;">${eventTitle}</h4>
+        <p style="color:#64748b;margin:0;">Дата події: <strong>${startDate}</strong></p>
       </div>
-      <p style="color: #888; font-size: 13px;">
-        Якщо у вас є питання — зверніться до адміністратора.
-      </p>
-    </div>
-  `;
+      <p style="color:#475569;">Якщо у вас є питання — зверніться до адміністратора.</p>
+    `;
+
+    const html = this.emailWrapper(
+      '#e11d48',
+      'Вашу реєстрацію скасовано',
+      body,
+    );
 
     await this.prisma.notification.create({
       data: {
@@ -410,51 +524,104 @@ export class NotificationsService {
 
     await this.sendEmail(
       userEmail,
-      `❌ Вашу реєстрацію скасовано: ${eventTitle}`,
+      `Реєстрацію скасовано: ${eventTitle}`,
       html,
     );
+    this.logger.log(
+      `REGISTRATION_CANCELLED_BY_ADMIN sent to ${userEmail} for event "${eventTitle}"`,
+    );
+  }
+
+  /**
+   * Надсилає email зареєстрованим учасникам після завершення події з нагадуванням залишити feedback
+   */
+
+  async notifyRegisteredUsersOnEventCompleted(eventId: string): Promise<void> {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+    });
+    if (!event || event.status !== EventStatus.COMPLETED) return;
+
+    const registrations = await this.prisma.registration.findMany({
+      where: { eventId, status: 'REGISTERED' },
+      include: { user: { select: { id: true, email: true, fullName: true } } },
+    });
+
+    const feedbacks = await this.prisma.feedback.findMany({
+      where: { eventId },
+      select: { userId: true },
+    });
+    const usersWithFeedback = new Set(feedbacks.map((f) => f.userId));
+    const usersToNotify = registrations
+      .map((r) => r.user)
+      .filter((u) => !usersWithFeedback.has(u.id));
+    if (usersToNotify.length === 0) return;
+
+    const body = `
+      <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:6px;padding:20px;margin-bottom:16px;">
+        <h4 style="margin:0 0 8px 0;color:#1e293b;">${event.title}</h4>
+        <p style="color:#475569;margin:0 0 8px 0;">Захід завершено! Дякуємо за вашу участь.</p>
+        <p style="color:#475569;margin:0;">Будь ласка, залиште відгук та оцінку від 1 до 5 — це допоможе нам покращити майбутні події.</p>
+      </div>
+      <p style="color:#475569;">Відгук можна залишити у корпоративній системі на сторінці події.</p>
+    `;
+
+    const html = this.emailWrapper('#059669', 'Залиште відгук про подію', body);
+
+    for (const user of usersToNotify) {
+      await this.prisma.notification.create({
+        data: {
+          userId: user.id,
+          title: `Залиште відгук: ${event.title}`,
+          message: `Захід "${event.title}" завершено. Будь ласка, залиште свій відгук.`,
+          type: NotificationType.FEEDBACK_REMINDER,
+          eventId: event.id,
+        },
+      });
+      await this.sendEmail(
+        user.email,
+        `Залиште відгук про подію: ${event.title}`,
+        html,
+      );
+    }
 
     this.logger.log(
-      `REGISTRATION_CANCELLED_BY_ADMIN email sent to ${userEmail} for event "${eventTitle}"`,
+      `FEEDBACK_REMINDER notifications sent for event ${eventId} to ${usersToNotify.length} users`,
     );
   }
 
   /**
    * Надсилає email зареєстрованим учасникам після публікації звіту
    */
+
   async notifyRegisteredUsersOnReportCreated(eventId: string): Promise<void> {
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
     });
-
     if (!event) return;
 
     const registrations = await this.prisma.registration.findMany({
       where: { eventId, status: 'REGISTERED' },
-      include: {
-        user: { select: { id: true, email: true, fullName: true } },
-      },
+      include: { user: { select: { id: true, email: true, fullName: true } } },
     });
-
     if (registrations.length === 0) return;
 
-    const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #2c3e50;">📋 Звіт про подію опубліковано</h2>
-      <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 16px 0;">
-        <h3 style="color: #34495e; margin-top: 0;">${event.title}</h3>
-        <p style="color: #555;">
-          Адміністратор опублікував звіт про захід.<br/>
-          Ви можете переглянути його у корпоративній системі.
-        </p>
+    const body = `
+      <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:6px;padding:20px;margin-bottom:16px;">
+        <h4 style="margin:0 0 8px 0;color:#1e293b;">${event.title}</h4>
+        <p style="color:#475569;margin:0;">Адміністратор опублікував звіт про захід. Ви можете переглянути його у корпоративній системі.</p>
       </div>
-      <p style="color: #888; font-size: 13px;">Дякуємо за участь у заході!</p>
-    </div>
-  `;
+      <p style="color:#475569;">Дякуємо за участь у заході!</p>
+    `;
+
+    const html = this.emailWrapper(
+      '#059669',
+      'Звіт про подію опубліковано',
+      body,
+    );
 
     for (const registration of registrations) {
       const user = registration.user;
-
       await this.prisma.notification.create({
         data: {
           userId: user.id,
@@ -464,12 +631,7 @@ export class NotificationsService {
           eventId: event.id,
         },
       });
-
-      await this.sendEmail(
-        user.email,
-        `📋 Звіт про подію: ${event.title}`,
-        html,
-      );
+      await this.sendEmail(user.email, `Звіт про подію: ${event.title}`, html);
     }
 
     this.logger.log(
@@ -480,6 +642,7 @@ export class NotificationsService {
   /**
    * Отримати всі сповіщення поточного користувача
    */
+
   async findAllForUser(userId: string) {
     return this.prisma.notification.findMany({
       where: { userId },
@@ -494,11 +657,9 @@ export class NotificationsService {
     const notification = await this.prisma.notification.findFirst({
       where: { id, userId },
     });
-
     if (!notification) {
       return { message: 'Сповіщення не знайдено або доступ заборонено' };
     }
-
     return this.prisma.notification.update({
       where: { id },
       data: { isRead: true },
@@ -513,7 +674,6 @@ export class NotificationsService {
       where: { userId, isRead: false },
       data: { isRead: true },
     });
-
     return { message: 'Всі сповіщення позначено як прочитані' };
   }
 }

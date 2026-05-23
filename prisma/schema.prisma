@@ -34,6 +34,7 @@ enum NotificationType {
   EVENT_UPDATED
   FEEDBACK_REMINDER
   REPORT_PUBLISHED
+  SYSTEM
 }
 
 model User {
