@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsNotEmpty } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class UpdateReportDto {
   @ApiPropertyOptional({
@@ -10,4 +10,13 @@ export class UpdateReportDto {
   @IsString()
   @IsNotEmpty()
   text?: string;
+
+  @ApiPropertyOptional({
+    example: true,
+    description:
+      'Якщо true — надіслати сповіщення зареєстрованим учасникам про оновлення звіту',
+  })
+  @IsOptional()
+  @IsBoolean()
+  notifyParticipants?: boolean;
 }

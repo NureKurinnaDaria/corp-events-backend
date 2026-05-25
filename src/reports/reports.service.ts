@@ -158,7 +158,7 @@ export class ReportsService {
       throw new NotFoundException('Звіт не знайдено');
     }
 
-    return this.prisma.eventReport.update({
+    const updated = await this.prisma.eventReport.update({
       where: { id },
       data: {
         ...(updateReportDto.text !== undefined && {
@@ -180,6 +180,14 @@ export class ReportsService {
         },
       },
     });
+
+    if (updateReportDto.notifyParticipants) {
+      void this.notificationsService.notifyRegisteredUsersOnReportUpdated(
+        report.eventId,
+      );
+    }
+
+    return updated;
   }
 
   async remove(id: string, currentUserRole: Role) {
@@ -195,9 +203,16 @@ export class ReportsService {
       throw new NotFoundException('Звіт не знайдено');
     }
 
+    // Зберігаємо eventId до видалення
+    const { eventId } = report;
+
     await this.prisma.eventReport.delete({
       where: { id },
     });
+
+    void this.notificationsService.notifyRegisteredUsersOnReportDeleted(
+      eventId,
+    );
 
     return {
       message: 'Звіт успішно видалено',

@@ -75,6 +75,37 @@ export class NotificationsService {
   }
 
   /**
+   * Надсилає адміністраторам підтвердження що розсилку надіслано
+   */
+  private async notifyAdminsOnBroadcastSent(
+    eventId: string,
+    eventTitle: string,
+    recipientCount: number,
+    actionLabel: string,
+  ): Promise<void> {
+    if (recipientCount === 0) return;
+
+    const admins = await this.prisma.user.findMany({
+      where: { role: 'ADMIN' },
+      select: { id: true },
+    });
+
+    const plural = recipientCount === 1 ? 'співробітнику' : 'співробітникам';
+
+    for (const admin of admins) {
+      await this.prisma.notification.create({
+        data: {
+          userId: admin.id,
+          title: `Розсилку надіслано: ${eventTitle}`,
+          message: `${actionLabel} успішно надіслано ${recipientCount} ${plural}.`,
+          type: NotificationType.SYSTEM,
+          eventId,
+        },
+      });
+    }
+  }
+
+  /**
    * Надсилає email всім EMPLOYEE при створенні нової події
    */
 
@@ -145,22 +176,12 @@ export class NotificationsService {
       `EVENT_CREATED notifications sent for event ${eventId} to ${employees.length} employees`,
     );
 
-    // Сповіщення адміну що розсилка відбулась
-    const admins = await this.prisma.user.findMany({
-      where: { role: 'ADMIN' },
-      select: { id: true },
-    });
-    for (const admin of admins) {
-      await this.prisma.notification.create({
-        data: {
-          userId: admin.id,
-          title: `Розсилку надіслано: ${event.title}`,
-          message: `Сповіщення про нову подію "${event.title}" успішно надіслано ${employees.length} ${employees.length === 1 ? 'співробітнику' : 'співробітникам'}.`,
-          type: NotificationType.SYSTEM,
-          eventId: event.id,
-        },
-      });
-    }
+    await this.notifyAdminsOnBroadcastSent(
+      event.id,
+      event.title,
+      employees.length,
+      `Сповіщення про нову подію "${event.title}"`,
+    );
   }
 
   /**
@@ -243,6 +264,13 @@ export class NotificationsService {
     this.logger.log(
       `EVENT_UPDATED notifications sent for event ${eventId} to ${registrations.length} users`,
     );
+
+    await this.notifyAdminsOnBroadcastSent(
+      eventId,
+      event.title,
+      registrations.length,
+      `Сповіщення про зміни в події "${event.title}" (${changedFieldsUa})`,
+    );
   }
 
   /**
@@ -291,6 +319,13 @@ export class NotificationsService {
 
     this.logger.log(
       `EVENT_CANCELED notifications sent for event ${eventId} to ${registrations.length} users`,
+    );
+
+    await this.notifyAdminsOnBroadcastSent(
+      eventId,
+      event.title,
+      registrations.length,
+      `Сповіщення про скасування події "${event.title}"`,
     );
   }
 
@@ -588,6 +623,13 @@ export class NotificationsService {
     this.logger.log(
       `FEEDBACK_REMINDER notifications sent for event ${eventId} to ${usersToNotify.length} users`,
     );
+
+    await this.notifyAdminsOnBroadcastSent(
+      eventId,
+      event.title,
+      usersToNotify.length,
+      `Нагадування про відгук для події "${event.title}"`,
+    );
   }
 
   /**
@@ -637,6 +679,13 @@ export class NotificationsService {
     this.logger.log(
       `REPORT_PUBLISHED notifications sent for event ${eventId} to ${registrations.length} users`,
     );
+
+    await this.notifyAdminsOnBroadcastSent(
+      eventId,
+      event.title,
+      registrations.length,
+      `Сповіщення про публікацію звіту для події "${event.title}"`,
+    );
   }
 
   /**
@@ -664,6 +713,108 @@ export class NotificationsService {
       where: { id },
       data: { isRead: true },
     });
+  }
+
+  /**
+   * Надсилає сповіщення зареєстрованим учасникам при оновленні звіту
+   */
+  async notifyRegisteredUsersOnReportUpdated(eventId: string): Promise<void> {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+    });
+    if (!event) return;
+
+    const registrations = await this.prisma.registration.findMany({
+      where: { eventId, status: 'REGISTERED' },
+      include: { user: { select: { id: true, email: true, fullName: true } } },
+    });
+    if (registrations.length === 0) return;
+
+    const body = `
+      <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:6px;padding:20px;margin-bottom:16px;">
+        <h4 style="margin:0 0 8px 0;color:#1e293b;">${event.title}</h4>
+        <p style="color:#475569;margin:0;">Адміністратор оновив звіт про захід. Перегляньте актуальну версію у корпоративній системі.</p>
+      </div>
+      <p style="color:#475569;">Дякуємо за участь у заході!</p>
+    `;
+
+    const html = this.emailWrapper('#7c3aed', 'Звіт про подію оновлено', body);
+
+    for (const registration of registrations) {
+      const user = registration.user;
+      await this.prisma.notification.create({
+        data: {
+          userId: user.id,
+          title: `Звіт оновлено: ${event.title}`,
+          message: `Адміністратор оновив звіт про захід "${event.title}". Перегляньте актуальну версію.`,
+          type: NotificationType.REPORT_PUBLISHED,
+          eventId: event.id,
+        },
+      });
+      await this.sendEmail(user.email, `Звіт оновлено: ${event.title}`, html);
+    }
+
+    this.logger.log(
+      `REPORT_UPDATED notifications sent for event ${eventId} to ${registrations.length} users`,
+    );
+
+    await this.notifyAdminsOnBroadcastSent(
+      eventId,
+      event.title,
+      registrations.length,
+      `Сповіщення про оновлення звіту для події "${event.title}"`,
+    );
+  }
+
+  /**
+   * Надсилає сповіщення зареєстрованим учасникам при видаленні звіту
+   */
+  async notifyRegisteredUsersOnReportDeleted(eventId: string): Promise<void> {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+    });
+    if (!event) return;
+
+    const registrations = await this.prisma.registration.findMany({
+      where: { eventId, status: 'REGISTERED' },
+      include: { user: { select: { id: true, email: true, fullName: true } } },
+    });
+    if (registrations.length === 0) return;
+
+    const body = `
+      <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:20px;margin-bottom:16px;">
+        <h4 style="margin:0 0 8px 0;color:#1e293b;">${event.title}</h4>
+        <p style="color:#475569;margin:0;">Адміністратор видалив звіт про цей захід.</p>
+      </div>
+      <p style="color:#475569;">Якщо у вас є питання — зверніться до адміністратора.</p>
+    `;
+
+    const html = this.emailWrapper('#ea580c', 'Звіт про подію видалено', body);
+
+    for (const registration of registrations) {
+      const user = registration.user;
+      await this.prisma.notification.create({
+        data: {
+          userId: user.id,
+          title: `Звіт видалено: ${event.title}`,
+          message: `Адміністратор видалив звіт про захід "${event.title}".`,
+          type: NotificationType.SYSTEM,
+          eventId: event.id,
+        },
+      });
+      await this.sendEmail(user.email, `Звіт видалено: ${event.title}`, html);
+    }
+
+    this.logger.log(
+      `REPORT_DELETED notifications sent for event ${eventId} to ${registrations.length} users`,
+    );
+
+    await this.notifyAdminsOnBroadcastSent(
+      eventId,
+      event.title,
+      registrations.length,
+      `Сповіщення про видалення звіту для події "${event.title}"`,
+    );
   }
 
   /**
