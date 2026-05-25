@@ -60,6 +60,19 @@ export class AuthService {
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        passwordHash: true,
+        fullName: true,
+        phone: true,
+        position: true,
+        avatarUrl: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
     if (!user) {
@@ -70,6 +83,12 @@ export class AuthService {
 
     if (!ok) {
       throw new UnauthorizedException('Невірний email або пароль');
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException(
+        'Акаунт заблоковано. Зверніться до адміністратора',
+      );
     }
 
     const publicUser = {

@@ -413,7 +413,7 @@ export class NotificationsService {
         });
         await this.sendEmail(
           user.email,
-          `Нагадування: ${event.title} — через ${timeLabel}`,
+          `Нагадування: ${event.title} - через ${timeLabel}`,
           html,
         );
       }
@@ -510,7 +510,7 @@ export class NotificationsService {
         });
         await this.sendEmail(
           user.email,
-          `Нагадування: ${event.title} — через ${timeLabel}`,
+          `Нагадування: ${event.title} - через ${timeLabel}`,
           html,
         );
       }

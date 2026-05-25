@@ -1,7 +1,16 @@
-import { Body, Controller, Get, Patch, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Patch,
+  Param,
+  Query,
+  Req,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -31,5 +40,36 @@ export class UsersController {
   @Patch('profile')
   updateProfile(@Req() req: any, @Body() dto: UpdateProfileDto) {
     return this.usersService.updateProfile(req.user.id, dto);
+  }
+
+  // ─── Admin endpoints ──────────────────────────────────────────────
+
+  @ApiOperation({ summary: '[ADMIN] Get all users' })
+  @ApiQuery({ name: 'search', required: false })
+  @Auth(Role.ADMIN)
+  @Get('admin/list')
+  getAllUsers(@Query('search') search?: string) {
+    return this.usersService.getAllUsers(search);
+  }
+
+  @ApiOperation({ summary: '[ADMIN] Get user details' })
+  @Auth(Role.ADMIN)
+  @Get('admin/:id')
+  getUserDetails(@Param('id') id: string) {
+    return this.usersService.getUserDetails(id);
+  }
+
+  @ApiOperation({ summary: '[ADMIN] Block user' })
+  @Auth(Role.ADMIN)
+  @Patch('admin/:id/block')
+  blockUser(@Req() req: any, @Param('id') id: string) {
+    return this.usersService.setUserActive(req.user.id, id, false);
+  }
+
+  @ApiOperation({ summary: '[ADMIN] Unblock user' })
+  @Auth(Role.ADMIN)
+  @Patch('admin/:id/unblock')
+  unblockUser(@Req() req: any, @Param('id') id: string) {
+    return this.usersService.setUserActive(req.user.id, id, true);
   }
 }
