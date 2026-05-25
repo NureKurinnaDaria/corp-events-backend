@@ -145,4 +145,86 @@ export class AnalyticsService {
       formatStats,
     };
   }
+
+  async getPeriodReport(from: string, to: string) {
+    const fromDate = new Date(from);
+    const toDate = new Date(to);
+    toDate.setHours(23, 59, 59, 999);
+
+    const events = await this.prisma.event.findMany({
+      where: {
+        startAt: {
+          gte: fromDate,
+          lte: toDate,
+        },
+      },
+      include: {
+        category: true,
+        registrations: {
+          where: { status: 'REGISTERED' },
+        },
+        feedbacks: {
+          select: { rating: true },
+        },
+      },
+      orderBy: { startAt: 'asc' },
+    });
+
+    const mapped = events.map((e) => {
+      const regs = e.registrations.length;
+      const fillRate =
+        e.maxParticipants != null && e.maxParticipants > 0
+          ? Math.round((regs / e.maxParticipants) * 100)
+          : null;
+      const avgRating =
+        e.feedbacks.length > 0
+          ? Math.round(
+              (e.feedbacks.reduce((s, f) => s + f.rating, 0) /
+                e.feedbacks.length) *
+                10,
+            ) / 10
+          : null;
+      return {
+        id: e.id,
+        title: e.title,
+        category: e.category?.name ?? '',
+        date: e.startAt.toISOString(),
+        format: e.format,
+        status: e.status,
+        registrations: regs,
+        maxParticipants: e.maxParticipants,
+        fillRate,
+        avgRating,
+        feedbackCount: e.feedbacks.length,
+      };
+    });
+
+    const totalRegistrations = mapped.reduce((s, e) => s + e.registrations, 0);
+    const fillRates = mapped
+      .filter((e) => e.fillRate != null)
+      .map((e) => e.fillRate as number);
+    const avgFillRate =
+      fillRates.length > 0
+        ? Math.round(fillRates.reduce((s, v) => s + v, 0) / fillRates.length)
+        : null;
+    const ratings = mapped
+      .filter((e) => e.avgRating != null)
+      .map((e) => e.avgRating as number);
+    const avgRating =
+      ratings.length > 0
+        ? Math.round(
+            (ratings.reduce((s, v) => s + v, 0) / ratings.length) * 10,
+          ) / 10
+        : null;
+
+    return {
+      from,
+      to,
+      totalEvents: mapped.length,
+      totalRegistrations,
+      avgFillRate,
+      avgRating,
+      events: mapped,
+    };
+  }
 }
