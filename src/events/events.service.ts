@@ -10,12 +10,14 @@ import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { GetEventsQueryDto } from './dto/get-events-query.dto';
 import { NotificationsService } from '../notifications/notifications.service';
+import { EventsGateway } from '../gateway/events.gateway';
 
 @Injectable()
 export class EventsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly eventsGateway: EventsGateway,
   ) {}
 
   private readonly employeeVisibleStatuses: EventStatus[] = [
@@ -107,6 +109,12 @@ export class EventsService {
 
     // Нотифікуємо всіх EMPLOYEE про нову подію (fire-and-forget)
     void this.notificationsService.notifyAllEmployeesOnEventCreated(event.id);
+
+    // WebSocket: нова подія з'являється у списку всіх підключених клієнтів
+    this.eventsGateway.emitEventCreated({
+      ...event,
+      participantsCount: 0,
+    });
 
     return event;
   }
@@ -321,6 +329,16 @@ export class EventsService {
       );
     }
 
+    // WebSocket: сповіщаємо всіх хто зараз дивиться цю подію
+    this.eventsGateway.emitEventStatusChanged(id, {
+      status: updated.status,
+      title: updated.title,
+    });
+    this.eventsGateway.emitParticipantsUpdated(
+      id,
+      updated._count.registrations,
+    );
+
     return {
       ...updated,
       participantsCount: updated._count.registrations,
@@ -367,6 +385,12 @@ export class EventsService {
     });
 
     void this.notificationsService.notifyRegisteredUsersOnEventCanceled(id);
+
+    // WebSocket: миттєво оновлюємо статус для всіх хто дивиться цю подію
+    this.eventsGateway.emitEventStatusChanged(id, {
+      status: 'CANCELED',
+      title: updated.title,
+    });
 
     return {
       ...updated,

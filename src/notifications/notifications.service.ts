@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationType, EventStatus } from '@prisma/client';
 import * as nodemailer from 'nodemailer';
+import { EventsGateway } from '../gateway/events.gateway';
 
 @Injectable()
 export class NotificationsService {
@@ -12,6 +13,7 @@ export class NotificationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly eventsGateway: EventsGateway,
   ) {
     this.transporter = nodemailer.createTransport({
       host: this.configService.get<string>('SMTP_HOST', 'smtp.gmail.com'),
@@ -155,22 +157,37 @@ export class NotificationsService {
 
     const html = this.emailWrapper('#2563eb', 'Нова корпоративна подія', body);
 
-    for (const employee of employees) {
-      await this.prisma.notification.create({
-        data: {
-          userId: employee.id,
-          title: `Нова подія: ${event.title}`,
-          message: `Запрошуємо вас на корпоративний захід "${event.title}", який відбудеться ${startDate}.`,
-          type: NotificationType.EVENT_CREATED,
-          eventId: event.id,
-        },
-      });
-      await this.sendEmail(
-        employee.email,
-        `Нова корпоративна подія: ${event.title}`,
-        html,
-      );
-    }
+    // Паралельно створюємо сповіщення і одразу емітимо WS для кожного
+    await Promise.all(
+      employees.map(async (employee) => {
+        const notification = await this.prisma.notification.create({
+          data: {
+            userId: employee.id,
+            title: `Нова подія: ${event.title}`,
+            message: `Запрошуємо вас на корпоративний захід "${event.title}", який відбудеться ${startDate}.`,
+            type: NotificationType.EVENT_CREATED,
+            eventId: event.id,
+          },
+        });
+
+        // WebSocket: миттєво після запису в БД
+        this.eventsGateway.emitNewNotification(employee.id, {
+          id: notification.id,
+          title: notification.title,
+          message: notification.message,
+          type: notification.type,
+          eventId: notification.eventId,
+          createdAt: notification.createdAt,
+        });
+
+        // Email — fire-and-forget, не блокує
+        void this.sendEmail(
+          employee.email,
+          `Нова корпоративна подія: ${event.title}`,
+          html,
+        );
+      }),
+    );
 
     this.logger.log(
       `EVENT_CREATED notifications sent for event ${eventId} to ${employees.length} employees`,

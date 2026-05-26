@@ -6,12 +6,14 @@ import {
 import { EventStatus, RegistrationStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { EventsGateway } from '../gateway/events.gateway';
 
 @Injectable()
 export class RegistrationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly eventsGateway: EventsGateway,
   ) {}
 
   async register(eventId: string, userId: string) {
@@ -63,7 +65,7 @@ export class RegistrationsService {
     }
 
     if (existingRegistration?.status === RegistrationStatus.CANCELED) {
-      return this.prisma.registration.update({
+      const updated = await this.prisma.registration.update({
         where: {
           userId_eventId: {
             userId,
@@ -86,9 +88,18 @@ export class RegistrationsService {
           },
         },
       });
+
+      // WebSocket: emit після повторної реєстрації (CANCELED → REGISTERED)
+      const updatedCount = await this.prisma.registration.count({
+        where: { eventId, status: RegistrationStatus.REGISTERED },
+      });
+      this.eventsGateway.emitParticipantsUpdated(eventId, updatedCount);
+      this.eventsGateway.emitParticipantsUpdatedGlobal(eventId, updatedCount);
+
+      return updated;
     }
 
-    return this.prisma.registration.create({
+    const created = await this.prisma.registration.create({
       data: {
         userId,
         eventId,
@@ -107,6 +118,15 @@ export class RegistrationsService {
         },
       },
     });
+
+    // WebSocket: оновлюємо лічильник — на сторінці деталей і в глобальному списку
+    const newCount = await this.prisma.registration.count({
+      where: { eventId, status: RegistrationStatus.REGISTERED },
+    });
+    this.eventsGateway.emitParticipantsUpdated(eventId, newCount);
+    this.eventsGateway.emitParticipantsUpdatedGlobal(eventId, newCount);
+
+    return created;
   }
 
   async cancel(eventId: string, userId: string) {
@@ -144,7 +164,7 @@ export class RegistrationsService {
       );
     }
 
-    return this.prisma.registration.update({
+    const cancelled = await this.prisma.registration.update({
       where: {
         userId_eventId: {
           userId,
@@ -167,6 +187,15 @@ export class RegistrationsService {
         },
       },
     });
+
+    // WebSocket: оновлюємо лічильник — на сторінці деталей і в глобальному списку
+    const newCount = await this.prisma.registration.count({
+      where: { eventId, status: RegistrationStatus.REGISTERED },
+    });
+    this.eventsGateway.emitParticipantsUpdated(eventId, newCount);
+    this.eventsGateway.emitParticipantsUpdatedGlobal(eventId, newCount);
+
+    return cancelled;
   }
 
   async adminCancelRegistration(registrationId: string) {
