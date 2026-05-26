@@ -21,6 +21,7 @@ import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { GetEventsQueryDto } from './dto/get-events-query.dto';
+import { JwtRequest } from '../types/jwt-payload';
 
 @ApiTags('Events')
 @ApiBearerAuth('access-token')
@@ -32,7 +33,7 @@ export class EventsController {
   @ApiResponse({ status: 201, description: 'Event created successfully' })
   @Auth(Role.ADMIN)
   @Post()
-  create(@Req() req: any, @Body() dto: CreateEventDto) {
+  create(@Req() req: JwtRequest, @Body() dto: CreateEventDto) {
     return this.eventsService.create(req.user.id, dto);
   }
 
@@ -40,7 +41,7 @@ export class EventsController {
   @ApiResponse({ status: 200, description: 'Events returned successfully' })
   @Auth(Role.ADMIN, Role.EMPLOYEE)
   @Get()
-  findAll(@Req() req: any, @Query() query: GetEventsQueryDto) {
+  findAll(@Req() req: JwtRequest, @Query() query: GetEventsQueryDto) {
     return this.eventsService.findAll(query, req.user.role);
   }
 
@@ -48,7 +49,7 @@ export class EventsController {
   @ApiResponse({ status: 200, description: 'Event returned successfully' })
   @Auth(Role.ADMIN, Role.EMPLOYEE)
   @Get(':id')
-  findOne(@Req() req: any, @Param('id') id: string) {
+  findOne(@Req() req: JwtRequest, @Param('id') id: string) {
     return this.eventsService.findOne(id, req.user.role);
   }
 

@@ -18,6 +18,7 @@ import {
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { JwtRequest } from '../types/jwt-payload';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -44,7 +45,7 @@ export class AuthController {
   @ApiBearerAuth('access-token')
   @UseGuards(AuthGuard('jwt'))
   @Get('me')
-  me(@Req() req: any) {
+  me(@Req() req: JwtRequest) {
     return req.user;
   }
 }

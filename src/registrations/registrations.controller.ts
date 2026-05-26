@@ -17,6 +17,7 @@ import { Role } from '@prisma/client';
 
 import { Auth } from '../auth/decorators/auth.decorator';
 import { RegistrationsService } from './registrations.service';
+import { JwtRequest } from '../types/jwt-payload';
 
 @ApiTags('Registrations')
 @ApiBearerAuth('access-token')
@@ -28,7 +29,7 @@ export class RegistrationsController {
   @ApiResponse({ status: 201, description: 'Registered successfully' })
   @Auth(Role.EMPLOYEE)
   @Post(':eventId')
-  register(@Param('eventId') eventId: string, @Req() req: any) {
+  register(@Param('eventId') eventId: string, @Req() req: JwtRequest) {
     return this.registrationsService.register(eventId, req.user.id);
   }
 
@@ -41,7 +42,7 @@ export class RegistrationsController {
   })
   @Auth(Role.EMPLOYEE)
   @Patch(':eventId/cancel')
-  cancel(@Param('eventId') eventId: string, @Req() req: any) {
+  cancel(@Param('eventId') eventId: string, @Req() req: JwtRequest) {
     return this.registrationsService.cancel(eventId, req.user.id);
   }
 
@@ -55,7 +56,7 @@ export class RegistrationsController {
   })
   @Auth(Role.EMPLOYEE)
   @Get('my')
-  getMyRegistrations(@Req() req: any) {
+  getMyRegistrations(@Req() req: JwtRequest) {
     return this.registrationsService.getMyRegistrations(req.user.id);
   }
 

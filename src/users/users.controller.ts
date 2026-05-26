@@ -19,6 +19,7 @@ import { Role } from '@prisma/client';
 import { Auth } from '../auth/decorators/auth.decorator';
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { JwtRequest } from '../types/jwt-payload';
 
 @ApiTags('Users')
 @ApiBearerAuth('access-token')
@@ -30,7 +31,7 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'Profile returned successfully' })
   @Auth(Role.ADMIN, Role.EMPLOYEE)
   @Get('profile')
-  getProfile(@Req() req: any) {
+  getProfile(@Req() req: JwtRequest) {
     return this.usersService.getProfile(req.user.id);
   }
 
@@ -38,7 +39,7 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'Profile updated successfully' })
   @Auth(Role.ADMIN, Role.EMPLOYEE)
   @Patch('profile')
-  updateProfile(@Req() req: any, @Body() dto: UpdateProfileDto) {
+  updateProfile(@Req() req: JwtRequest, @Body() dto: UpdateProfileDto) {
     return this.usersService.updateProfile(req.user.id, dto);
   }
 
@@ -62,14 +63,14 @@ export class UsersController {
   @ApiOperation({ summary: '[ADMIN] Block user' })
   @Auth(Role.ADMIN)
   @Patch('admin/:id/block')
-  blockUser(@Req() req: any, @Param('id') id: string) {
+  blockUser(@Req() req: JwtRequest, @Param('id') id: string) {
     return this.usersService.setUserActive(req.user.id, id, false);
   }
 
   @ApiOperation({ summary: '[ADMIN] Unblock user' })
   @Auth(Role.ADMIN)
   @Patch('admin/:id/unblock')
-  unblockUser(@Req() req: any, @Param('id') id: string) {
+  unblockUser(@Req() req: JwtRequest, @Param('id') id: string) {
     return this.usersService.setUserActive(req.user.id, id, true);
   }
 }
