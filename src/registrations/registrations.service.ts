@@ -37,9 +37,6 @@ export class RegistrationsService {
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`
-  SELECT max_participants FROM events WHERE id = ${eventId}::uuid FOR UPDATE
-`;
       const maxParticipants = event.maxParticipants ?? null;
 
       const existingRegistration = await tx.registration.findUnique({
