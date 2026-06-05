@@ -43,8 +43,6 @@ export class UsersController {
     return this.usersService.updateProfile(req.user.id, dto);
   }
 
-  // ─── Admin endpoints ──────────────────────────────────────────────
-
   @ApiOperation({ summary: '[ADMIN] Get all users' })
   @ApiQuery({ name: 'search', required: false })
   @Auth(Role.ADMIN)

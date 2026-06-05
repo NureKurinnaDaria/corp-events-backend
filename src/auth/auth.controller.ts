@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Post,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -15,6 +16,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { Response } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -28,16 +30,34 @@ export class AuthController {
   @ApiOperation({ summary: 'Register a new employee user' })
   @ApiResponse({ status: 201, description: 'User registered successfully' })
   @Post('register')
-  register(@Body() dto: RegisterDto) {
-    return this.auth.register(dto);
+  async register(
+    @Body() dto: RegisterDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.auth.register(dto);
+    this.setTokenCookie(res, result.accessToken);
+    return { user: result.user };
   }
 
   @ApiOperation({ summary: 'Login and get access token' })
   @ApiResponse({ status: 200, description: 'Logged in successfully' })
   @HttpCode(HttpStatus.OK)
   @Post('login')
-  login(@Body() dto: LoginDto) {
-    return this.auth.login(dto);
+  async login(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.auth.login(dto);
+    this.setTokenCookie(res, result.accessToken);
+    return { user: result.user };
+  }
+
+  @ApiOperation({ summary: 'Logout — clear auth cookie' })
+  @HttpCode(HttpStatus.OK)
+  @Post('logout')
+  logout(@Res({ passthrough: true }) res: Response) {
+    res.clearCookie('token', { path: '/' });
+    return { message: 'Logged out' };
   }
 
   @ApiOperation({ summary: 'Get current authorized user from JWT' })
@@ -47,5 +67,16 @@ export class AuthController {
   @Get('me')
   me(@Req() req: JwtRequest) {
     return req.user;
+  }
+
+  private setTokenCookie(res: Response, token: string) {
+    const isProduction = process.env.NODE_ENV === 'production';
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
   }
 }

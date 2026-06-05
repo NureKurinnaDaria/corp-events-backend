@@ -30,7 +30,6 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.logger.log(`Client disconnected: ${client.id}`);
   }
 
-  // Клієнт підписується на конкретну подію
   @SubscribeMessage('joinEvent')
   handleJoinEvent(
     @MessageBody() eventId: string,
@@ -40,7 +39,6 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.logger.log(`Client ${client.id} joined event:${eventId}`);
   }
 
-  // Клієнт відписується від події
   @SubscribeMessage('leaveEvent')
   handleLeaveEvent(
     @MessageBody() eventId: string,
@@ -50,14 +48,12 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.logger.log(`Client ${client.id} left event:${eventId}`);
   }
 
-  // Клієнт підписується на глобальний список подій
   @SubscribeMessage('joinEventsList')
   handleJoinEventsList(@ConnectedSocket() client: Socket) {
     client.join('events-list');
     this.logger.log(`Client ${client.id} joined events-list`);
   }
 
-  // Клієнт підписується на свої сповіщення
   @SubscribeMessage('joinUser')
   handleJoinUser(
     @MessageBody() userId: string,
@@ -67,7 +63,6 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.logger.log(`Client ${client.id} joined user:${userId}`);
   }
 
-  // Emit: статус події змінився (скасування, оновлення)
   emitEventStatusChanged(
     eventId: string,
     payload: {
@@ -84,7 +79,6 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     );
   }
 
-  // Emit: кількість учасників змінилась
   emitParticipantsUpdated(eventId: string, participantsCount: number) {
     this.server.to(`event:${eventId}`).emit('participantsUpdated', {
       eventId,
@@ -95,7 +89,6 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     );
   }
 
-  // Emit: оновлення лічильника в глобальному списку подій
   emitParticipantsUpdatedGlobal(eventId: string, participantsCount: number) {
     this.server.to('events-list').emit('participantsUpdatedGlobal', {
       eventId,
@@ -106,13 +99,11 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     );
   }
 
-  // Emit: нова подія створена — оновлюємо список у всіх клієнтів
   emitEventCreated(event: Record<string, unknown>) {
     this.server.to('events-list').emit('eventCreated', event);
     this.logger.log(`emitEventCreated → events-list eventId=${event['id']}`);
   }
 
-  // Emit: нове сповіщення для конкретного юзера
   emitNewNotification(
     userId: string,
     notification: {

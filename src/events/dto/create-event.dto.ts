@@ -44,8 +44,8 @@ export class CreateEventDto {
 
   @ApiPropertyOptional({ example: 50 })
   @IsOptional()
-  @IsInt()
-  @Min(1)
+  @IsInt({ message: 'Максимальна кількість учасників має бути цілим числом' })
+  @Min(1, { message: 'Максимальна кількість учасників має бути не менше 1' })
   maxParticipants?: number;
 
   @ApiPropertyOptional({

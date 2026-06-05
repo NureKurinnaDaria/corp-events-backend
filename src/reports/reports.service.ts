@@ -203,7 +203,6 @@ export class ReportsService {
       throw new NotFoundException('Звіт не знайдено');
     }
 
-    // Зберігаємо eventId до видалення
     const { eventId } = report;
 
     await this.prisma.eventReport.delete({

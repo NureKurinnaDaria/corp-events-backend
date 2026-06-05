@@ -36,43 +36,68 @@ export class RegistrationsService {
       );
     }
 
-    const existingRegistration = await this.prisma.registration.findUnique({
-      where: {
-        userId_eventId: {
-          userId,
-          eventId,
-        },
-      },
-    });
+    const result = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`
+  SELECT max_participants FROM events WHERE id = ${eventId}::uuid FOR UPDATE
+`;
+      const maxParticipants = event.maxParticipants ?? null;
 
-    if (existingRegistration?.status === RegistrationStatus.REGISTERED) {
-      throw new BadRequestException('Ви вже зареєстровані на цю подію');
-    }
-
-    const activeRegistrationsCount = await this.prisma.registration.count({
-      where: {
-        eventId,
-        status: RegistrationStatus.REGISTERED,
-      },
-    });
-
-    if (
-      event.maxParticipants !== null &&
-      event.maxParticipants !== undefined &&
-      activeRegistrationsCount >= event.maxParticipants
-    ) {
-      throw new BadRequestException('Немає вільних місць');
-    }
-
-    if (existingRegistration?.status === RegistrationStatus.CANCELED) {
-      const updated = await this.prisma.registration.update({
+      const existingRegistration = await tx.registration.findUnique({
         where: {
           userId_eventId: {
             userId,
             eventId,
           },
         },
+      });
+
+      if (existingRegistration?.status === RegistrationStatus.REGISTERED) {
+        throw new BadRequestException('Ви вже зареєстровані на цю подію');
+      }
+
+      if (maxParticipants !== null && maxParticipants !== undefined) {
+        const activeRegistrationsCount = await tx.registration.count({
+          where: {
+            eventId,
+            status: RegistrationStatus.REGISTERED,
+          },
+        });
+
+        if (activeRegistrationsCount >= maxParticipants) {
+          throw new BadRequestException('Немає вільних місць');
+        }
+      }
+
+      if (existingRegistration?.status === RegistrationStatus.CANCELED) {
+        return tx.registration.update({
+          where: {
+            userId_eventId: {
+              userId,
+              eventId,
+            },
+          },
+          data: {
+            status: RegistrationStatus.REGISTERED,
+          },
+          include: {
+            event: {
+              include: {
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+      }
+
+      return tx.registration.create({
         data: {
+          userId,
+          eventId,
           status: RegistrationStatus.REGISTERED,
         },
         include: {
@@ -88,45 +113,15 @@ export class RegistrationsService {
           },
         },
       });
-
-      // WebSocket: emit після повторної реєстрації (CANCELED → REGISTERED)
-      const updatedCount = await this.prisma.registration.count({
-        where: { eventId, status: RegistrationStatus.REGISTERED },
-      });
-      this.eventsGateway.emitParticipantsUpdated(eventId, updatedCount);
-      this.eventsGateway.emitParticipantsUpdatedGlobal(eventId, updatedCount);
-
-      return updated;
-    }
-
-    const created = await this.prisma.registration.create({
-      data: {
-        userId,
-        eventId,
-        status: RegistrationStatus.REGISTERED,
-      },
-      include: {
-        event: {
-          include: {
-            category: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
-      },
     });
 
-    // WebSocket: оновлюємо лічильник — на сторінці деталей і в глобальному списку
     const newCount = await this.prisma.registration.count({
       where: { eventId, status: RegistrationStatus.REGISTERED },
     });
     this.eventsGateway.emitParticipantsUpdated(eventId, newCount);
     this.eventsGateway.emitParticipantsUpdatedGlobal(eventId, newCount);
 
-    return created;
+    return result;
   }
 
   async cancel(eventId: string, userId: string) {
@@ -188,7 +183,6 @@ export class RegistrationsService {
       },
     });
 
-    // WebSocket: оновлюємо лічильник — на сторінці деталей і в глобальному списку
     const newCount = await this.prisma.registration.count({
       where: { eventId, status: RegistrationStatus.REGISTERED },
     });

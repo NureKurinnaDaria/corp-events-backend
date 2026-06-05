@@ -48,7 +48,6 @@ export class AnalyticsService {
       }),
     ]);
 
-    // KPI
     const avgRating =
       feedbacks.length > 0
         ? feedbacks.reduce((sum, f) => sum + f.rating, 0) / feedbacks.length
@@ -68,7 +67,6 @@ export class AnalyticsService {
     const activeUsers = activeUsersRaw.length;
     const totalFeedbacks = feedbacks.length;
 
-    // Top by registrations
     const topByRegistrations = [...eventStats]
       .sort((a, b) => b._count.registrations - a._count.registrations)
       .slice(0, 5)
@@ -78,7 +76,6 @@ export class AnalyticsService {
         registrations: e._count.registrations,
       }));
 
-    // Top by rating
     const topByRating = eventStats
       .filter((e) => e.feedbacks.length > 0)
       .map((e) => ({
@@ -92,7 +89,6 @@ export class AnalyticsService {
       .sort((a, b) => b.avgRating - a.avgRating)
       .slice(0, 5);
 
-    // Category stats
     const categoryStats = categories.map((c) => {
       const totalRegs = c.events.reduce(
         (sum, e) => sum + e._count.registrations,
@@ -106,7 +102,6 @@ export class AnalyticsService {
       };
     });
 
-    // Activity by month (last 6 months)
     const now = new Date();
     const monthlyActivity = Array.from({ length: 6 }, (_, i) => {
       const date = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
@@ -123,7 +118,6 @@ export class AnalyticsService {
       };
     });
 
-    // Format split
     const onlineCount = allEvents.filter((e) => e.format === 'ONLINE').length;
     const offlineCount = allEvents.filter((e) => e.format === 'OFFLINE').length;
     const formatStats = [

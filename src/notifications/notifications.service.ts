@@ -76,9 +76,6 @@ export class NotificationsService {
     `;
   }
 
-  /**
-   * Надсилає адміністраторам підтвердження що розсилку надіслано
-   */
   private async notifyAdminsOnBroadcastSent(
     eventId: string,
     eventTitle: string,
@@ -106,10 +103,6 @@ export class NotificationsService {
       });
     }
   }
-
-  /**
-   * Надсилає email всім EMPLOYEE при створенні нової події
-   */
 
   async notifyAllEmployeesOnEventCreated(eventId: string): Promise<void> {
     const event = await this.prisma.event.findUnique({
@@ -157,7 +150,6 @@ export class NotificationsService {
 
     const html = this.emailWrapper('#2563eb', 'Нова корпоративна подія', body);
 
-    // Паралельно створюємо сповіщення і одразу емітимо WS для кожного
     await Promise.all(
       employees.map(async (employee) => {
         const notification = await this.prisma.notification.create({
@@ -170,7 +162,6 @@ export class NotificationsService {
           },
         });
 
-        // WebSocket: миттєво після запису в БД
         this.eventsGateway.emitNewNotification(employee.id, {
           id: notification.id,
           title: notification.title,
@@ -180,7 +171,6 @@ export class NotificationsService {
           createdAt: notification.createdAt,
         });
 
-        // Email — fire-and-forget, не блокує
         void this.sendEmail(
           employee.email,
           `Нова корпоративна подія: ${event.title}`,
@@ -200,10 +190,6 @@ export class NotificationsService {
       `Сповіщення про нову подію "${event.title}"`,
     );
   }
-
-  /**
-   * Надсилає email зареєстрованим учасникам при зміні критичних полів події
-   */
 
   async notifyRegisteredUsersOnEventUpdated(
     eventId: string,
@@ -290,10 +276,6 @@ export class NotificationsService {
     );
   }
 
-  /**
-   * Надсилає email зареєстрованим учасникам при скасуванні події
-   */
-
   async notifyRegisteredUsersOnEventCanceled(eventId: string): Promise<void> {
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
@@ -346,16 +328,12 @@ export class NotificationsService {
     );
   }
 
-  /**
-   * Надсилає нагадування зареєстрованим учасникам за вказану кількість годин до початку
-   */
-
   async sendEventReminders(hoursBeforeStart: number): Promise<void> {
     const now = new Date();
     const windowStart = new Date(
       now.getTime() + hoursBeforeStart * 60 * 60 * 1000,
     );
-    const windowEnd = new Date(windowStart.getTime() + 31 * 60 * 1000); // вікно 31 хвилина (перекриває інтервал крона)
+    const windowEnd = new Date(windowStart.getTime() + 31 * 60 * 1000);
 
     const events = await this.prisma.event.findMany({
       where: {
@@ -373,7 +351,6 @@ export class NotificationsService {
     });
 
     for (const event of events) {
-      // Перевіряємо чи вже надсилали нагадування з таким часом
       const reminderLabel = `reminder_${hoursBeforeStart}h`;
       const alreadySent = await this.prisma.notification.findFirst({
         where: {
@@ -441,9 +418,6 @@ export class NotificationsService {
     }
   }
 
-  /**
-   * Надсилає нагадування лише для подій конкретного формату (OFFLINE/ONLINE)
-   */
   async sendEventRemindersForFormat(
     hoursBeforeStart: number,
     format: string,
@@ -584,10 +558,6 @@ export class NotificationsService {
     );
   }
 
-  /**
-   * Надсилає email зареєстрованим учасникам після завершення події з нагадуванням залишити feedback
-   */
-
   async notifyRegisteredUsersOnEventCompleted(eventId: string): Promise<void> {
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
@@ -649,10 +619,6 @@ export class NotificationsService {
     );
   }
 
-  /**
-   * Надсилає email зареєстрованим учасникам після публікації звіту
-   */
-
   async notifyRegisteredUsersOnReportCreated(eventId: string): Promise<void> {
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
@@ -705,10 +671,6 @@ export class NotificationsService {
     );
   }
 
-  /**
-   * Отримати всі сповіщення поточного користувача
-   */
-
   async findAllForUser(userId: string) {
     return this.prisma.notification.findMany({
       where: { userId },
@@ -716,9 +678,6 @@ export class NotificationsService {
     });
   }
 
-  /**
-   * Позначити сповіщення як прочитане
-   */
   async markAsRead(id: string, userId: string) {
     const notification = await this.prisma.notification.findFirst({
       where: { id, userId },
@@ -732,9 +691,6 @@ export class NotificationsService {
     });
   }
 
-  /**
-   * Надсилає сповіщення зареєстрованим учасникам при оновленні звіту
-   */
   async notifyRegisteredUsersOnReportUpdated(eventId: string): Promise<void> {
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
@@ -783,9 +739,6 @@ export class NotificationsService {
     );
   }
 
-  /**
-   * Надсилає сповіщення зареєстрованим учасникам при видаленні звіту
-   */
   async notifyRegisteredUsersOnReportDeleted(eventId: string): Promise<void> {
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
@@ -834,9 +787,6 @@ export class NotificationsService {
     );
   }
 
-  /**
-   * Позначити всі сповіщення користувача як прочитані
-   */
   async markAllAsRead(userId: string) {
     await this.prisma.notification.updateMany({
       where: { userId, isRead: false },

@@ -18,7 +18,6 @@ export class RolesGuard implements CanActivate {
       context.getClass(),
     ]);
 
-    // якщо на роуті ролі не вказані — значить доступ тільки по JWT (взагалі відкритий)
     if (!requiredRoles || requiredRoles.length === 0) return true;
 
     const req = context.switchToHttp().getRequest();

@@ -13,12 +13,10 @@ export class EventSchedulerService {
     private readonly notificationsService: NotificationsService,
   ) {}
 
-  // Кожну хвилину — оновлення статусів подій
   @Cron(CronExpression.EVERY_MINUTE)
   async updateEventStatuses() {
     const now = new Date();
 
-    // PUBLISHED → ONGOING
     const toOngoing = await this.prisma.event.findMany({
       where: {
         status: EventStatus.PUBLISHED,
@@ -36,7 +34,6 @@ export class EventSchedulerService {
       this.logger.log(`Set ONGOING: ${toOngoing.length} event(s)`);
     }
 
-    // ONGOING/PUBLISHED → COMPLETED
     const toCompleted = await this.prisma.event.findMany({
       where: {
         status: { in: [EventStatus.ONGOING, EventStatus.PUBLISHED] },
@@ -60,19 +57,15 @@ export class EventSchedulerService {
     }
   }
 
-  // Кожні 30 хвилин — нагадування
   @Cron('*/30 * * * *')
   async sendEventReminders() {
-    // Нагадування за 24 години — для всіх форматів
     await this.notificationsService.sendEventReminders(24);
 
-    // Нагадування за 2 години — для офлайн
     await this.notificationsService.sendEventRemindersForFormat(
       2,
       EventFormat.OFFLINE,
     );
 
-    // Нагадування за 30 хвилин — для онлайн
     await this.notificationsService.sendEventRemindersForFormat(
       0.5,
       EventFormat.ONLINE,

@@ -73,8 +73,6 @@ export class UsersService {
     return updatedUser;
   }
 
-  // ─── Admin methods ───────────────────────────────────────────────
-
   async getAllUsers(search?: string) {
     const users = await this.prisma.user.findMany({
       where: search

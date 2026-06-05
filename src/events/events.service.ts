@@ -48,6 +48,17 @@ export class EventsService {
       }
     }
 
+    if (!isUpdate && dto.startAt) {
+      const startAt = new Date(dto.startAt);
+      const now = new Date();
+
+      if (startAt < now) {
+        throw new BadRequestException(
+          'Дата початку події не може бути в минулому',
+        );
+      }
+    }
+
     if (!isUpdate || dto.format === EventFormat.ONLINE) {
       if (dto.format === EventFormat.ONLINE && !dto.onlineUrl) {
         throw new BadRequestException("Посилання обов'язкове для онлайн-подій");
@@ -107,10 +118,8 @@ export class EventsService {
       },
     });
 
-    // Нотифікуємо всіх EMPLOYEE про нову подію (fire-and-forget)
     void this.notificationsService.notifyAllEmployeesOnEventCreated(event.id);
 
-    // WebSocket: нова подія з'являється у списку всіх підключених клієнтів
     this.eventsGateway.emitEventCreated({
       ...event,
       participantsCount: 0,
@@ -154,7 +163,6 @@ export class EventsService {
       where.status = {
         in: this.employeeVisibleStatuses,
       };
-      // Показуємо тільки події що ще не почались
       where.startAt = { gt: new Date() };
 
       if (
@@ -329,7 +337,6 @@ export class EventsService {
       );
     }
 
-    // WebSocket: сповіщаємо всіх хто зараз дивиться цю подію
     this.eventsGateway.emitEventStatusChanged(id, {
       status: updated.status,
       title: updated.title,
@@ -386,7 +393,6 @@ export class EventsService {
 
     void this.notificationsService.notifyRegisteredUsersOnEventCanceled(id);
 
-    // WebSocket: миттєво оновлюємо статус для всіх хто дивиться цю подію
     this.eventsGateway.emitEventStatusChanged(id, {
       status: 'CANCELED',
       title: updated.title,
